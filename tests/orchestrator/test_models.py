@@ -21,7 +21,9 @@ from local_gpt_mcp.orchestrator import (
 
 def browser_step(**kwargs: object) -> Step:
     defaults: dict[str, object] = {
-        "step_id": "one", "action": Action.BROWSER_READ, "target": "local-tab",
+        "step_id": "one",
+        "action": Action.BROWSER_READ,
+        "target": "local-tab",
         "selector": "#title",
     }
     defaults.update(kwargs)

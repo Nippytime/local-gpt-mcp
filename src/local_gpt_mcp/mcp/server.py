@@ -277,9 +277,7 @@ def create_server(
                 "plan_id": result.plan_id,
                 "completed": result.completed,
                 "finished": result.finished,
-                "results": [
-                    {"step_id": value.step_id, "result": value.result} for value in result.outputs
-                ],
+                "results": [{"step_id": value.step_id, "result": value.result} for value in result.outputs],
             }
 
     return server

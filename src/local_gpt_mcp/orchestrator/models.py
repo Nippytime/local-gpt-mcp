@@ -79,7 +79,12 @@ class Step:
                 raise ValueError("Browser selector required")
         elif self.selector:
             raise ValueError("Unexpected selector")
-        if self.action in {Action.BROWSER_FILL, Action.BROWSER_NAVIGATE, Action.DESKTOP_TYPE, Action.DESKTOP_KEY}:
+        if self.action in {
+            Action.BROWSER_FILL,
+            Action.BROWSER_NAVIGATE,
+            Action.DESKTOP_TYPE,
+            Action.DESKTOP_KEY,
+        }:
             max_len = 2048 if self.action == Action.BROWSER_NAVIGATE else 256
             if not 0 < len(self.text) <= max_len or not self.text.isprintable():
                 raise ValueError("Invalid input text")

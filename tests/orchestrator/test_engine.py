@@ -49,13 +49,14 @@ class FakeDriver:
         self.value = "READY"
         self.started = asyncio.Event()
 
-    async def condition(
-        self, step: Step, condition: object, credentials: SessionGrants, nonce: str
-    ) -> bool:
+    async def condition(self, step: Step, condition: object, credentials: SessionGrants, nonce: str) -> bool:
         assert isinstance(condition, Condition)
         self.broker.authorize_grant(
-            credentials.session_token, nonce, credentials.read_grant,
-            "https://example.com", Capability.BROWSER_READ
+            credentials.session_token,
+            nonce,
+            credentials.read_grant,
+            "https://example.com",
+            Capability.BROWSER_READ
         )
         self.calls.append("check")
         return condition.contains in self.value
@@ -89,12 +90,10 @@ class Fixture:
         token = self.broker.open("person", "computer", self.nonce())["session_token"]
         assert isinstance(token, str)
         read = self.broker.request_grant(
-            token, self.nonce(), "https://example.com",
-            frozenset({Capability.BROWSER_READ}), 180
+            token, self.nonce(), "https://example.com", frozenset({Capability.BROWSER_READ}), 180
         )["grant_token"]
         write = self.broker.request_grant(
-            token, self.nonce(), "https://example.com",
-            frozenset({Capability.BROWSER_INPUT}), 180
+            token, self.nonce(), "https://example.com", frozenset({Capability.BROWSER_INPUT}), 180
         )["grant_token"]
         assert isinstance(read, str) and isinstance(write, str)
         self.grants = SessionGrants(token, read, write)

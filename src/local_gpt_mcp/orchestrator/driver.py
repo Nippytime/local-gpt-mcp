@@ -37,9 +37,7 @@ class ScopedDriver:
     def _handle(step: Step) -> int:
         return int(step.target.removeprefix("window:"))
 
-    async def condition(
-        self, step: Step, condition: object, credentials: SessionGrants, nonce: str
-    ) -> bool:
+    async def condition(self, step: Step, condition: object, credentials: SessionGrants, nonce: str) -> bool:
         if not isinstance(condition, Condition):
             raise PermissionError("Unexpected workflow condition")
         if step.action.value.startswith("browser."):
@@ -85,9 +83,7 @@ class ScopedDriver:
         desktop = self._require_desktop()
         handle = self._handle(step)
         if step.action == Action.DESKTOP_INFO:
-            window = await asyncio.to_thread(
-                desktop.describe, session, nonce, credentials.read_grant, handle
-            )
+            window = await asyncio.to_thread(desktop.describe, session, nonce, credentials.read_grant, handle)
             return window.title
         if step.action == Action.DESKTOP_CLICK:
             if step.x is None or step.y is None:
@@ -96,11 +92,17 @@ class ScopedDriver:
                 desktop.click, session, nonce, credentials.input_grant, handle, step.x, step.y
             )
         elif step.action == Action.DESKTOP_TYPE:
-            await asyncio.to_thread(desktop.type_text, session, nonce, credentials.input_grant, handle, step.text)
+            await asyncio.to_thread(
+                desktop.type_text, session, nonce, credentials.input_grant, handle, step.text
+            )
         elif step.action == Action.DESKTOP_SCROLL:
-            await asyncio.to_thread(desktop.scroll, session, nonce, credentials.input_grant, handle, step.amount)
+            await asyncio.to_thread(
+                desktop.scroll, session, nonce, credentials.input_grant, handle, step.amount
+            )
         elif step.action == Action.DESKTOP_KEY:
-            await asyncio.to_thread(desktop.press_key, session, nonce, credentials.input_grant, handle, step.text)
+            await asyncio.to_thread(
+                desktop.press_key, session, nonce, credentials.input_grant, handle, step.text
+            )
         else:
             raise PermissionError("Unsupported desktop workflow action")
         return ""
