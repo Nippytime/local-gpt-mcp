@@ -203,6 +203,8 @@ class WorkflowEngine:
                     # Suppress untrusted page text, underlying URLs and tokens.
                     raise WorkflowFailure("Workflow action failed or timed out") from None
                 outputs.append(StepOutput(step.step_id, result))
-                state: Literal["ready", "complete"] = "complete" if position + 1 == len(plan.steps) else "ready"
+                state: Literal["ready", "complete"] = (
+                    "complete" if position + 1 == len(plan.steps) else "ready"
+                )
                 self._store.save(plan.plan_id, Checkpoint(digest, position + 1, state))
             return WorkflowResult(plan.plan_id, len(plan.steps), True, tuple(outputs))
