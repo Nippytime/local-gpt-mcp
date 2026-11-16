@@ -45,7 +45,8 @@
           "Fast deterministic gates",
           "PR test/build gates",
           "Dependency audit",
-          "Workflow policy"
+          "Workflow policy",
+          "Windows adapter contract"
         ]
       },
       "production": {

@@ -12,13 +12,26 @@ def main(argv: list[str] | None = None) -> int:
     choice = parser.add_mutually_exclusive_group()
     choice.add_argument("--version", action="store_true", help="Print installed package version")
     choice.add_argument("--stdio", action="store_true", help="Serve the local MCP protocol via stdio")
+    parser.add_argument(
+        "--allow-window",
+        action="append",
+        type=int,
+        default=[],
+        metavar="HWND",
+        help="Locally select a currently foreground Windows window for this session",
+    )
     args = parser.parse_args(argv)
+    if args.allow_window and not args.stdio:
+        parser.error("--allow-window requires --stdio")
     if args.version:
         print(package_version())
     elif args.stdio:
         from local_gpt_mcp.mcp.server import serve_stdio
 
-        serve_stdio()
+        if args.allow_window:
+            serve_stdio(tuple(args.allow_window))
+        else:
+            serve_stdio()
     else:
         print("Local GPT MCP: unpaired; no desktop or browser access is enabled.")
     return 0

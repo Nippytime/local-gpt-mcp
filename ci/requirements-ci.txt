@@ -9,3 +9,7 @@ pre-commit>=4.6.2
 setuptools>=80
 wheel>=0.45
 mcp==2.3.0
+Pillow==13.0.0; sys_platform == "win32"
+pywin32==312; sys_platform == "win32"
+psutil>=7.1.0; sys_platform == "win32"
+uiautomation==2.0.29; sys_platform == "win32"
