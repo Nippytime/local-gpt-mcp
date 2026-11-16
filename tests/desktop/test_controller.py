@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any, cast
 
 import pytest
 
@@ -43,7 +44,7 @@ class FakeBackend:
         )
         self.actions: list[tuple[object, ...]] = []
         self.image = b"\x89PNG\r\n\x1a\nvalid"
-        self.nodes = (ControlInfo("ButtonControl", "OK", 1),)
+        self.nodes: tuple[ControlInfo, ...] = (ControlInfo("ButtonControl", "OK", 1),)
 
     def desktop_ready(self) -> bool:
         return self.ready
@@ -83,8 +84,9 @@ class Fixture:
         self.n = 0
         allowed = (self.backend.info.identity,) if trusted else ()
         self.controller = DesktopController(self.broker, self.backend, allowed)
-        self.session = self.broker.open("user1", "device1", self.nonce())["session_token"]
-        assert isinstance(self.session, str)
+        session = self.broker.open("user1", "device1", self.nonce())["session_token"]
+        assert isinstance(session, str)
+        self.session: str = session
         self.read = self.grant(Capability.WINDOW_READ)
         self.input = self.grant(Capability.WINDOW_INPUT)
 
@@ -141,7 +143,7 @@ def test_remote_cannot_add_unauthorized_window() -> None:
 )
 def test_unsafe_windows_fail_closed(changed: dict[str, object]) -> None:
     f = Fixture()
-    f.backend.info = replace(f.backend.info, **changed)
+    f.backend.info = replace(f.backend.info, **cast(dict[str, Any], changed))
     with pytest.raises(DesktopDenied):
         f.info()
     assert not f.backend.actions
