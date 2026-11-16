@@ -35,9 +35,7 @@ def _public_dns(host: str) -> bool:
     """Reject DNS results targeting private, loopback, link-local or reserved IPs."""
     try:
         answers = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
-        return bool(answers) and all(
-            ipaddress.ip_address(result[4][0]).is_global for result in answers
-        )
+        return bool(answers) and all(ipaddress.ip_address(result[4][0]).is_global for result in answers)
     except (OSError, ValueError):
         return False
 

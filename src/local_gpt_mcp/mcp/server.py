@@ -67,9 +67,7 @@ def create_server(
 
     async def approve_direct_async(step: Step) -> None:
         try:
-            approved = await asyncio.wait_for(
-                asyncio.to_thread(local_approval.approve, step), timeout=46
-            )
+            approved = await asyncio.wait_for(asyncio.to_thread(local_approval.approve, step), timeout=46)
         except Exception:
             raise ToolError("Fresh local action approval is required") from None
         if not approved:
@@ -129,9 +127,7 @@ def create_server(
 
     if desktop is not None:
 
-        def approve_desktop(
-            session: str, nonce: str, grant: str, handle: int, step: Step
-        ) -> None:
+        def approve_desktop(session: str, nonce: str, grant: str, handle: int, step: Step) -> None:
             _safe_call(
                 lambda: broker.authorize_grant(
                     session, nonce, grant, f"window:{handle}", Capability.WINDOW_INPUT
@@ -192,9 +188,7 @@ def create_server(
                 handle,
                 Step("direct", Action.DESKTOP_CLICK, f"window:{handle}", x=x, y=y),
             )
-            _safe_call(
-                lambda: desktop.click(session_token, secrets.token_hex(16), grant_token, handle, x, y)
-            )
+            _safe_call(lambda: desktop.click(session_token, secrets.token_hex(16), grant_token, handle, x, y))
             return {"executed": True}
 
         @server.tool()
@@ -250,18 +244,12 @@ def create_server(
 
     if browser is not None:
 
-        async def approve_browser(
-            session: str, nonce: str, grant: str, tab_id: str, step: Step
-        ) -> None:
-            origin = next(
-                (tab.origin for tab in browser.selected_tabs() if tab.tab_id == tab_id), None
-            )
+        async def approve_browser(session: str, nonce: str, grant: str, tab_id: str, step: Step) -> None:
+            origin = next((tab.origin for tab in browser.selected_tabs() if tab.tab_id == tab_id), None)
             if origin is None:
                 raise ToolError("Selected browser tab is unavailable")
             _safe_call(
-                lambda: broker.authorize_grant(
-                    session, nonce, grant, origin, Capability.BROWSER_INPUT
-                )
+                lambda: broker.authorize_grant(session, nonce, grant, origin, Capability.BROWSER_INPUT)
             )
             await approve_direct_async(step)
 
@@ -333,7 +321,9 @@ def create_server(
                 Step("direct", Action.BROWSER_FILL, tab_id, selector=selector, text=text),
             )
             await _safe_async(
-                lambda: browser.fill(session_token, secrets.token_hex(16), grant_token, tab_id, selector, text)
+                lambda: browser.fill(
+                    session_token, secrets.token_hex(16), grant_token, tab_id, selector, text
+                )
             )
             return {"executed": True}
 
@@ -349,7 +339,9 @@ def create_server(
                 tab_id,
                 Step("direct", Action.BROWSER_SCROLL, tab_id, amount=steps),
             )
-            await _safe_async(lambda: browser.scroll(session_token, secrets.token_hex(16), grant_token, tab_id, steps))
+            await _safe_async(
+                lambda: browser.scroll(session_token, secrets.token_hex(16), grant_token, tab_id, steps)
+            )
             return {"executed": True}
 
         @server.tool()

@@ -51,9 +51,7 @@ def build_sbom(installed: list[Distribution]) -> dict[str, Any]:
         "specVersion": "1.6",
         "serialNumber": f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, fingerprint)}",
         "version": 1,
-        "metadata": {
-            "component": {"type": "application", "name": "local-gpt-mcp", "version": "0.1.0"}
-        },
+        "metadata": {"component": {"type": "application", "name": "local-gpt-mcp", "version": "0.1.0"}},
         "components": components,
     }
 

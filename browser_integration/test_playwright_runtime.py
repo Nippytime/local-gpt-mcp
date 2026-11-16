@@ -58,7 +58,9 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
         # Override the network response with local synthetic content so CI
         # never depends on external site availability or credentials.
         await page.route("https://example.com/**", serve_html)
-        async with Client(create_server(broker, browser=controller, direct_action_approval=Approval())) as client:
+        async with Client(
+            create_server(broker, browser=controller, direct_action_approval=Approval())
+        ) as client:
             seq = 0
 
             def nonce() -> str:
