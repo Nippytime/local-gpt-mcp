@@ -103,6 +103,12 @@
         "@python",
         "ci/generate_sbom.py"
       ]
+    ],
+    "release_blockers": [
+      [
+        "@python",
+        "workflow/check_release_blockers.py"
+      ]
     ]
   },
   "stages": {
@@ -124,6 +130,7 @@
       "secrets"
     ],
     "release": [
+      "release_blockers",
       "policy",
       "format",
       "lint",

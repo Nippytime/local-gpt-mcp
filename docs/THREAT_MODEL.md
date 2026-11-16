@@ -47,4 +47,6 @@ The `Adversarial security regression` required check runs `pytest tests/security
 
 **Medium risk: local checkpoint file races and user-supplied filesystem permissions.** A hostile local process with write access to the workflow-state directory could tamper with a checkpoint or race local path checks. No secrets are written, but resume logic may be confused; use a private per-user directory, and validate file/reparse-point behavior on Windows before release.
 
+The **production `./ci/run release` stage now invokes `workflow/check_release_blockers.py`**. It exits nonzero as long as any high-risk record in `security/release_blockers.json` is open; a closed record requires a repository evidence URL. Do not remove or weaken this gate to ship an unfinished release.
+
 **Release rule:** Never mark `Complete`, merge to production `main`, or assert the project secure when a high-risk item remains. Track any new high-risk finding with owner, reproducible scenario, mitigation and regression test; update Issue #10's acceptance evidence.
