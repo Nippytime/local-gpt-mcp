@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "stages": {
+    "fast": [
+      "policy",
+      "format",
+      "lint",
+      "typecheck",
+      "unit"
+    ],
+    "pr": [
+      "policy",
+      "unit",
+      "coverage",
+      "build"
+    ],
+    "audit": [
+      "audit",
+      "secrets"
+    ],
+    "release": [
+      "policy",
+      "format",
+      "lint",
+      "typecheck",
+      "unit",
+      "coverage",
+      "audit",
+      "secrets",
+      "build"
+    ]
+  },
+  "commands": {
+    "policy": [
+      "python workflow/self_test.py",
+      "python workflow/check_workflow_policy.py"
+    ],
+    "format": [
+      "ruff format --check ."
+    ],
+    "lint": [
+      "ruff check ."
+    ],
+    "typecheck": [
+      "mypy"
+    ],
+    "unit": [
+      "pytest -q"
+    ],
+    "coverage": [
+      "pytest -q --cov=src/local_gpt_mcp --cov-report=term --cov-fail-under=80"
+    ],
+    "build": [
+      "python -m build --no-isolation"
+    ],
+    "audit": [
+      "pip-audit -r ci/requirements-ci.txt --strict"
+    ],
+    "secrets": [
+      "python workflow/check_secrets.py"
+    ]
+  },
+  "quality": {
+    "max_pr_files": 80,
+    "max_pr_changed_lines": 4000,
+    "max_cyclomatic_complexity": 15,
+    "require_issue_for_todo": true
+  }
+}

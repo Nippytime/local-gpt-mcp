@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "branches": {
+    "integration": "dev",
+    "production": "main"
+  },
+  "worktrees": {
+    "branch_prefix": "work"
+  },
+  "github": {
+    "control_issue_title": "[CONTROL] Current repository state",
+    "state_labels": [
+      "state:ready",
+      "state:active",
+      "state:blocked",
+      "state:review",
+      "state:release-ready"
+    ],
+    "risk_paths": {
+      "risk:ci": [
+        ".github/workflows/**",
+        "ci/**",
+        "workflow/**",
+        ".chatfreept/**"
+      ],
+      "risk:security": [
+        "src/local_gpt_mcp/policy/**",
+        "src/local_gpt_mcp/mcp/**",
+        "src/local_gpt_mcp/desktop/**",
+        "src/local_gpt_mcp/browser/**"
+      ],
+      "risk:deployment": [
+        "packaging/**",
+        "scripts/**"
+      ],
+      "risk:dependencies": [
+        "pyproject.toml",
+        "ci/requirements-ci.txt"
+      ]
+    },
+    "branch_protection": {
+      "integration": {
+        "required_checks": [
+          "PR metadata",
+          "Fast deterministic gates",
+          "PR test/build gates",
+          "Dependency audit",
+          "Workflow policy"
+        ]
+      },
+      "production": {
+        "required_checks": [
+          "Release metadata",
+          "Full regression and production build",
+          "Workflow policy"
+        ]
+      }
+    },
+    "expected_owner": "Nippytime",
+    "expected_repository": "local-gpt-mcp"
+  },
+  "commands": {},
+  "stages": {}
+}
