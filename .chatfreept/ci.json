@@ -88,6 +88,21 @@
         "-q",
         "browser_integration"
       ]
+    ],
+    "adversarial": [
+      [
+        "@python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/security"
+      ]
+    ],
+    "sbom": [
+      [
+        "@python",
+        "ci/generate_sbom.py"
+      ]
     ]
   },
   "stages": {
@@ -121,6 +136,10 @@
     ],
     "browser": [
       "browser"
+    ],
+    "security": [
+      "adversarial",
+      "sbom"
     ]
   },
   "quality": {
