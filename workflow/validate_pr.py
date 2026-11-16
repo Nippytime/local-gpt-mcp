@@ -149,8 +149,8 @@ def main() -> int:
     except (KeyError, ValueError, OSError, urllib.error.URLError, json.JSONDecodeError) as error:
         print(f"PR metadata validation failed: {error}", file=sys.stderr)
         return 1
-    for error in errors:
-        print(error, file=sys.stderr)
+    for failure in errors:
+        print(failure, file=sys.stderr)
     if errors:
         return 1
     print(f"PR metadata accepted for Issue #{issue_number} with {len(paths)} changed files")
