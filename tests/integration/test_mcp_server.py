@@ -67,15 +67,11 @@ async def test_locally_paired_client_can_get_status_and_stop() -> None:
         content = result.structured_content
         assert content is not None
         token = content["session_token"]
-        status = await client.call_tool(
-            "session_status", {"session_token": token, "client_nonce": "bb" * 16}
-        )
+        status = await client.call_tool("session_status", {"session_token": token, "client_nonce": "bb" * 16})
         assert not status.is_error
         stopped = await client.call_tool(
             "session_emergency_stop", {"session_token": token, "client_nonce": "cc" * 16}
         )
         assert not stopped.is_error
-        denied = await client.call_tool(
-            "session_status", {"session_token": token, "client_nonce": "dd" * 16}
-        )
+        denied = await client.call_tool("session_status", {"session_token": token, "client_nonce": "dd" * 16})
         assert denied.is_error

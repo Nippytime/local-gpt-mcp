@@ -43,8 +43,7 @@ class ConsoleApproval:
 
     def approve_pairing(self, request: PairingRequest) -> bool:
         return self._confirm(
-            f"Pair client claiming user '{request.user_id}' "
-            f"with device '{request.device_id}'?"
+            f"Pair client claiming user '{request.user_id}' with device '{request.device_id}'?"
         )
 
     def approve_grant(self, request: GrantRequest) -> bool:

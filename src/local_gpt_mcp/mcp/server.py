@@ -62,9 +62,7 @@ def create_server(broker: SessionBroker) -> MCPServer:
         )
 
     @server.tool()
-    def session_revoke_grant(
-        session_token: str, client_nonce: str, grant_token: str
-    ) -> dict[str, bool]:
+    def session_revoke_grant(session_token: str, client_nonce: str, grant_token: str) -> dict[str, bool]:
         """Immediately invalidate a grant owned by this session."""
         _safe_call(lambda: broker.revoke_grant(session_token, client_nonce, grant_token))
         return {"revoked": True}

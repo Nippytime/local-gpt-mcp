@@ -79,7 +79,7 @@ class SessionBroker:
             # Hold the local broker lock across the approval: another pairing
             # attempt cannot race this one and exceed the session count.
             self._policy.pair(PairingRequest(user_id, device_id))
-            session_id = secrets.token_urlsafe(24)
+            session_id = secrets.token_hex(24)
             bearer = secrets.token_urlsafe(32)
             self._sessions[bearer] = _Session(
                 Caller(user_id, device_id, session_id), self._clock() + SESSION_SECONDS

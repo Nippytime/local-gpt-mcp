@@ -180,9 +180,7 @@ def test_session_grant_expiry_cannot_outlive_pairing_session() -> None:
     f = BrokerFixture()
     token = f.open()
     f.now += 270
-    result = f.broker.request_grant(
-        token, f.nonce(), "window:11", frozenset({Capability.WINDOW_READ}), 600
-    )
+    result = f.broker.request_grant(token, f.nonce(), "window:11", frozenset({Capability.WINDOW_READ}), 600)
     assert result["expires_in"] == 30
 
 
@@ -190,9 +188,7 @@ def test_invalid_grant_duration_is_denied() -> None:
     f = BrokerFixture()
     token = f.open()
     with pytest.raises(AccessDenied, match="duration"):
-        f.broker.request_grant(
-            token, f.nonce(), "window:11", frozenset({Capability.WINDOW_READ}), -3
-        )
+        f.broker.request_grant(token, f.nonce(), "window:11", frozenset({Capability.WINDOW_READ}), -3)
 
 
 def test_bounded_replay_store() -> None:
@@ -211,9 +207,7 @@ def test_denied_session_has_no_secrets_in_audit() -> None:
     token = f.open()
     grant = f.grant(token)
     with pytest.raises(SessionDenied):
-        f.broker.authorize_grant(
-            token, f.nonce(), grant + "invalid", "window:11", Capability.WINDOW_READ
-        )
+        f.broker.authorize_grant(token, f.nonce(), grant + "invalid", "window:11", Capability.WINDOW_READ)
     assert token not in repr(f.policy.events)
     assert grant not in repr(f.policy.events)
 
@@ -223,7 +217,7 @@ def test_open_response_is_not_a_policy_grant() -> None:
     token = f.open()
     with pytest.raises(AccessDenied):
         f.policy.authorize(
-            token, 
+            token,
             f.broker._sessions[token].caller,
             "window:11",
             Capability.WINDOW_READ,
