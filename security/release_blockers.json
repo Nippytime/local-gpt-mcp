@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "blockers": [
+    {
+      "id": "DNS_REBINDING_TOCTOU",
+      "severity": "high",
+      "status": "open",
+      "issue": "https://github.com/Nippytime/local-gpt-mcp/issues/10",
+      "evidence": ""
+    },
+    {
+      "id": "PHYSICAL_WINDOWS_ACCEPTANCE",
+      "severity": "high",
+      "status": "open",
+      "issue": "https://github.com/Nippytime/local-gpt-mcp/issues/10",
+      "evidence": ""
+    }
+  ]
+}

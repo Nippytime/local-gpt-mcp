@@ -43,7 +43,8 @@
       "Workflow policy",
       "Windows adapter contract",
       "Browser integration contract",
-      "Windows packaging contract"
+      "Windows packaging contract",
+      "Adversarial security regression"
     ],
     "production": [
       "Release metadata",

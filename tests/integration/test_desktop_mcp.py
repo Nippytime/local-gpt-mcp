@@ -15,6 +15,7 @@ from local_gpt_mcp.desktop import (
     WindowInfo,
 )
 from local_gpt_mcp.mcp.server import create_server
+from local_gpt_mcp.orchestrator.models import Step
 from local_gpt_mcp.pairing import SessionBroker
 from local_gpt_mcp.policy import GrantRequest, PairingRequest, PolicyAuthority
 
@@ -24,6 +25,9 @@ class Approval:
         return True
 
     def approve_grant(self, request: GrantRequest) -> bool:
+        return True
+
+    def approve(self, step: Step) -> bool:
         return True
 
 
@@ -96,7 +100,7 @@ async def test_mcp_requires_pairing_and_separate_grant_for_every_effect() -> Non
         sequence += 1
         return f"{sequence:032x}"
 
-    async with Client(create_server(broker, controller)) as client:
+    async with Client(create_server(broker, controller, direct_action_approval=Approval())) as client:
         names = {tool.name for tool in (await client.list_tools()).tools}
         assert "desktop_window_info" in names
         assert "desktop_click" in names

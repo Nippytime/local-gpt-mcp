@@ -57,7 +57,7 @@ def test_windows_adapter_binds_visible_local_authority(monkeypatch: pytest.Monke
     server = FakeServer()
     parameters: list[tuple[Any, ...]] = []
 
-    def factory(*args: Any) -> FakeServer:
+    def factory(*args: Any, **kwargs: Any) -> FakeServer:
         parameters.append(args)
         return server
 
@@ -78,7 +78,7 @@ def test_no_ui_means_no_adapter_server_is_started(monkeypatch: pytest.MonkeyPatc
     server = FakeServer()
     monkeypatch.setattr("local_gpt_mcp.mcp.server.sys.platform", "win32")
     monkeypatch.setattr("local_gpt_mcp.mcp.server.LocalSafetyPanel", lambda: fake)
-    monkeypatch.setattr("local_gpt_mcp.mcp.server.create_server", lambda *a: server)
+    monkeypatch.setattr("local_gpt_mcp.mcp.server.create_server", lambda *a, **k: server)
     with pytest.raises(RuntimeError, match="visible"):
         serve_stdio(browser_origin="https://example.com")
     assert not server.ran
@@ -92,6 +92,6 @@ def test_stdio_without_adapter_does_not_require_window(monkeypatch: pytest.Monke
         "local_gpt_mcp.mcp.server.LocalSafetyPanel",
         lambda: pytest.fail("No adapter must not open the panel"),
     )
-    monkeypatch.setattr("local_gpt_mcp.mcp.server.create_server", lambda *a: server)
+    monkeypatch.setattr("local_gpt_mcp.mcp.server.create_server", lambda *a, **k: server)
     serve_stdio()
     assert server.ran

@@ -13,6 +13,7 @@ from playwright.async_api import Route
 from local_gpt_mcp.browser import BrowserController
 from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession
 from local_gpt_mcp.mcp.server import create_server
+from local_gpt_mcp.orchestrator.models import Step
 from local_gpt_mcp.pairing import SessionBroker
 from local_gpt_mcp.policy import GrantRequest, PairingRequest, PolicyAuthority
 
@@ -32,6 +33,9 @@ class Approval:
         return True
 
     def approve_grant(self, request: GrantRequest) -> bool:
+        return True
+
+    def approve(self, step: Step) -> bool:
         return True
 
 
@@ -54,7 +58,9 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
         # Override the network response with local synthetic content so CI
         # never depends on external site availability or credentials.
         await page.route("https://example.com/**", serve_html)
-        async with Client(create_server(broker, browser=controller)) as client:
+        async with Client(
+            create_server(broker, browser=controller, direct_action_approval=Approval())
+        ) as client:
             seq = 0
 
             def nonce() -> str:
@@ -161,7 +167,10 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
 
 
 @pytest.mark.anyio
-async def test_network_route_denies_private_and_cross_origin_requests() -> None:
+async def test_network_route_denies_private_and_cross_origin_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver._public_dns", lambda host: True)
     broker = SessionBroker(PolicyAuthority(Approval()))
     controller = BrowserController(broker)
     runtime = IsolatedBrowserSession("https://example.com", controller, headless=True)

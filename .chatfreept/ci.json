@@ -88,6 +88,27 @@
         "-q",
         "browser_integration"
       ]
+    ],
+    "adversarial": [
+      [
+        "@python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/security"
+      ]
+    ],
+    "sbom": [
+      [
+        "@python",
+        "ci/generate_sbom.py"
+      ]
+    ],
+    "release_blockers": [
+      [
+        "@python",
+        "workflow/check_release_blockers.py"
+      ]
     ]
   },
   "stages": {
@@ -109,6 +130,7 @@
       "secrets"
     ],
     "release": [
+      "release_blockers",
       "policy",
       "format",
       "lint",
@@ -121,6 +143,10 @@
     ],
     "browser": [
       "browser"
+    ],
+    "security": [
+      "adversarial",
+      "sbom"
     ]
   },
   "quality": {

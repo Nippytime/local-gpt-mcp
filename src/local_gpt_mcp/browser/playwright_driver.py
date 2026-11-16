@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import re
+import socket
 from typing import Self
+from urllib.parse import urlsplit
 
 from playwright.async_api import (
     Browser,
@@ -26,6 +29,15 @@ from local_gpt_mcp.browser.controller import (
 )
 
 SENSITIVE = re.compile(r"password|passcode|otp|one.time|credit|card|cvv|cvc|ssn|secret|token|api.key", re.I)
+
+
+def _public_dns(host: str) -> bool:
+    """Reject DNS results targeting private, loopback, link-local or reserved IPs."""
+    try:
+        answers = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        return bool(answers) and all(ipaddress.ip_address(result[4][0]).is_global for result in answers)
+    except (OSError, ValueError):
+        return False
 
 
 class PlaywrightTab:
@@ -97,6 +109,7 @@ class IsolatedBrowserSession:
 
     def __init__(self, origin: str, controller: BrowserController, *, headless: bool = False) -> None:
         self._origin = approved_origin(origin)
+        self._host = urlsplit(self._origin).hostname or ""
         self._controller = controller
         self._headless = headless
         self._playwright: Playwright | None = None
@@ -108,6 +121,11 @@ class IsolatedBrowserSession:
             allowed = origin_of(route.request.url) == self._origin
         except BrowserDenied:
             allowed = False
+        if allowed:
+            # Defense in depth against public-looking hostnames mapped to
+            # private-network addresses. A DNS rebinding TOCTOU risk remains
+            # until hostname-to-IP pinning is independently validated.
+            allowed = await asyncio.to_thread(_public_dns, self._host)
         if not allowed:
             await route.abort("blockedbyclient")
             return

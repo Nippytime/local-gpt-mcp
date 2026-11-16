@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import secrets
 import sys
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -16,9 +18,9 @@ from playwright.async_api import Error as PlaywrightError
 from local_gpt_mcp.browser import BrowserController, BrowserDenied
 from local_gpt_mcp.desktop.controller import DesktopController, DesktopDenied
 from local_gpt_mcp.orchestrator.driver import ScopedDriver
-from local_gpt_mcp.orchestrator.engine import WorkflowEngine, WorkflowFailure
+from local_gpt_mcp.orchestrator.engine import ActionApproval, DenyAllActions, WorkflowEngine, WorkflowFailure
 from local_gpt_mcp.orchestrator.local_approval import ConsoleActionApproval
-from local_gpt_mcp.orchestrator.models import SessionGrants, Step, WorkflowPlan
+from local_gpt_mcp.orchestrator.models import Action, SessionGrants, Step, WorkflowPlan
 from local_gpt_mcp.orchestrator.store import FileCheckpointStore, MemoryCheckpointStore
 from local_gpt_mcp.pairing.local_approval import ConsoleApproval
 from local_gpt_mcp.pairing.sessions import SessionBroker, SessionDenied
@@ -48,9 +50,28 @@ def create_server(
     browser: BrowserController | None = None,
     lifespan: Any = None,
     workflows: WorkflowEngine | None = None,
+    *,
+    direct_action_approval: ActionApproval | None = None,
 ) -> MCPServer:
     """Register scoped local tools, optionally with a temporary browser lifespan."""
     server = MCPServer("Local GPT MCP", lifespan=lifespan)
+    local_approval = direct_action_approval if direct_action_approval is not None else DenyAllActions()
+
+    def approve_direct(step: Step) -> None:
+        try:
+            approved = local_approval.approve(step)
+        except Exception:
+            raise ToolError("Fresh local action approval is required") from None
+        if not approved:
+            raise ToolError("Fresh local action approval is required")
+
+    async def approve_direct_async(step: Step) -> None:
+        try:
+            approved = await asyncio.wait_for(asyncio.to_thread(local_approval.approve, step), timeout=46)
+        except Exception:
+            raise ToolError("Fresh local action approval is required") from None
+        if not approved:
+            raise ToolError("Fresh local action approval is required")
 
     @server.resource("local-gpt://about")
     def about() -> str:
@@ -106,6 +127,14 @@ def create_server(
 
     if desktop is not None:
 
+        def approve_desktop(session: str, nonce: str, grant: str, handle: int, step: Step) -> None:
+            _safe_call(
+                lambda: broker.authorize_grant(
+                    session, nonce, grant, f"window:{handle}", Capability.WINDOW_INPUT
+                )
+            )
+            approve_direct(step)
+
         @server.tool()
         def desktop_window_info(
             session_token: str, client_nonce: str, grant_token: str, handle: int
@@ -152,7 +181,14 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, x: int, y: int
         ) -> dict[str, bool]:
             """Click one absolute pixel inside the approved, foreground window."""
-            _safe_call(lambda: desktop.click(session_token, client_nonce, grant_token, handle, x, y))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_CLICK, f"window:{handle}", x=x, y=y),
+            )
+            _safe_call(lambda: desktop.click(session_token, secrets.token_hex(16), grant_token, handle, x, y))
             return {"executed": True}
 
         @server.tool()
@@ -160,7 +196,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, text: str
         ) -> dict[str, bool]:
             """Type at most 256 printable characters without modifiers or Enter."""
-            _safe_call(lambda: desktop.type_text(session_token, client_nonce, grant_token, handle, text))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_TYPE, f"window:{handle}", text=text),
+            )
+            _safe_call(
+                lambda: desktop.type_text(session_token, secrets.token_hex(16), grant_token, handle, text)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -168,7 +213,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, steps: int
         ) -> dict[str, bool]:
             """Send at most three scroll steps to the approved window."""
-            _safe_call(lambda: desktop.scroll(session_token, client_nonce, grant_token, handle, steps))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_SCROLL, f"window:{handle}", amount=steps),
+            )
+            _safe_call(
+                lambda: desktop.scroll(session_token, secrets.token_hex(16), grant_token, handle, steps)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -176,10 +230,28 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, key: str
         ) -> dict[str, bool]:
             """Press a restricted navigation key; no Alt, Ctrl, Win or Enter."""
-            _safe_call(lambda: desktop.press_key(session_token, client_nonce, grant_token, handle, key))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_KEY, f"window:{handle}", text=key),
+            )
+            _safe_call(
+                lambda: desktop.press_key(session_token, secrets.token_hex(16), grant_token, handle, key)
+            )
             return {"executed": True}
 
     if browser is not None:
+
+        async def approve_browser(session: str, nonce: str, grant: str, tab_id: str, step: Step) -> None:
+            origin = next((tab.origin for tab in browser.selected_tabs() if tab.tab_id == tab_id), None)
+            if origin is None:
+                raise ToolError("Selected browser tab is unavailable")
+            _safe_call(
+                lambda: broker.authorize_grant(session, nonce, grant, origin, Capability.BROWSER_INPUT)
+            )
+            await approve_direct_async(step)
 
         @server.tool()
         def browser_selected_tabs(session_token: str, client_nonce: str) -> dict[str, list[dict[str, str]]]:
@@ -192,8 +264,15 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, url: str
         ) -> dict[str, str]:
             """Navigate within the exact approved HTTPS origin."""
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_NAVIGATE, tab_id, text=url),
+            )
             destination = await _safe_async(
-                lambda: browser.navigate(session_token, client_nonce, grant_token, tab_id, url)
+                lambda: browser.navigate(session_token, secrets.token_hex(16), grant_token, tab_id, url)
             )
             return {"url": destination}
 
@@ -205,15 +284,22 @@ def create_server(
             value = await _safe_async(
                 lambda: browser.read(session_token, client_nonce, grant_token, tab_id, selector)
             )
-            return {"text": value}
+            return {"text": value, "trust": "untrusted_page_content"}
 
         @server.tool()
         async def browser_click(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, selector: str
         ) -> dict[str, bool]:
             """Click one visible, nonsensitive element in the approved tab."""
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_CLICK, tab_id, selector=selector),
+            )
             await _safe_async(
-                lambda: browser.click(session_token, client_nonce, grant_token, tab_id, selector)
+                lambda: browser.click(session_token, secrets.token_hex(16), grant_token, tab_id, selector)
             )
             return {"executed": True}
 
@@ -227,8 +313,17 @@ def create_server(
             text: str,
         ) -> dict[str, bool]:
             """Fill a non-sensitive visible input; password/payment fields are prohibited."""
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_FILL, tab_id, selector=selector, text=text),
+            )
             await _safe_async(
-                lambda: browser.fill(session_token, client_nonce, grant_token, tab_id, selector, text)
+                lambda: browser.fill(
+                    session_token, secrets.token_hex(16), grant_token, tab_id, selector, text
+                )
             )
             return {"executed": True}
 
@@ -237,7 +332,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, steps: int
         ) -> dict[str, bool]:
             """Scroll only within the approved browser tab."""
-            await _safe_async(lambda: browser.scroll(session_token, client_nonce, grant_token, tab_id, steps))
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_SCROLL, tab_id, amount=steps),
+            )
+            await _safe_async(
+                lambda: browser.scroll(session_token, secrets.token_hex(16), grant_token, tab_id, steps)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -332,7 +436,14 @@ def serve_stdio(
             panel if panel is not None else ConsoleActionApproval(),
         )
     try:
-        create_server(broker, desktop, browser, lifespan, workflows).run(transport="stdio")
+        create_server(
+            broker,
+            desktop,
+            browser,
+            lifespan,
+            workflows,
+            direct_action_approval=panel if panel is not None else ConsoleActionApproval(),
+        ).run(transport="stdio")
     finally:
         if panel is not None:
             panel.stop()
