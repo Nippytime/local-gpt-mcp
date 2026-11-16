@@ -26,6 +26,8 @@ An MCP client must obtain the user's local-console pairing approval, then call `
 
 Every operation requires a valid session bearer, new nonce, approved grant, locally created tab ID, and matching current origin. The Playwright context has service workers blocked, download acceptance disabled, WebSockets blocked, and outgoing network requests filtered to the exact allowed HTTPS origin. Other tabs/popups are closed rather than controlled.
 
+**Candidate pinned HTTPS network transport (Item 9):** In the release-validation branch, intercepted GET/HEAD requests are resolved, checked for **only public IP addresses**, and connected directly to an approved IP while TLS verifies the original site hostname. The transport blocks redirects, HTTP and nonstandard ports, all POST/PUT form submissions, unsupported third-party resources, responses above 4 MB, and browser/WebSocket transfers. These strict limits mean dynamic sites and third-party assets may fail to load. The new transport is **under CI and real-browser review** and is not certified for all network channels; the high-risk release blocker remains open.
+
 **File transfers:** Upload controls are never filled; downloads are not accepted by the automation context. There is no silent upload/download path or ability to read local files. Future opt-in file transfers require a separate local chooser and per-transfer confirmation workflow.
 
 **Privacy:** The adapter does not extract passwords, cookie jars, local browser credentials, browser profile storage, clipboard contents, or payment form values. Editable fields are masked on screenshots and excluded from text extraction. Visible non-editable page text can still contain personal data; grant only on sites where you intend to disclose such content.
