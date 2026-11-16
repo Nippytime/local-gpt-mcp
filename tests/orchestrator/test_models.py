@@ -63,12 +63,13 @@ def test_mutations_validate_arguments() -> None:
     Step("click", Action.DESKTOP_CLICK, "window:41", x=10, y=10)
     Step("type", Action.DESKTOP_TYPE, "window:41", text="hello")
     Step("key", Action.DESKTOP_KEY, "window:41", text="tab")
-    for kwargs in [
+    invalid: list[dict[str, object]] = [
         {"action": Action.DESKTOP_CLICK, "target": "window:41", "x": 2},
         {"action": Action.BROWSER_FILL, "text": ""},
         {"action": Action.BROWSER_SCROLL, "amount": 5, "selector": ""},
         {"action": Action.DESKTOP_TYPE, "target": "window:0", "text": "hello", "selector": ""},
-    ]:
+    ]
+    for kwargs in invalid:
         with pytest.raises(ValueError):
             browser_step(**kwargs)
 
