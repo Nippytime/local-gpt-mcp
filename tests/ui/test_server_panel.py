@@ -92,6 +92,6 @@ def test_stdio_without_adapter_does_not_require_window(monkeypatch: pytest.Monke
         "local_gpt_mcp.mcp.server.LocalSafetyPanel",
         lambda: pytest.fail("No adapter must not open the panel"),
     )
-    monkeypatch.setattr("local_gpt_mcp.mcp.server.create_server", lambda *a: server)
+    monkeypatch.setattr("local_gpt_mcp.mcp.server.create_server", lambda *a, **k: server)
     serve_stdio()
     assert server.ran
