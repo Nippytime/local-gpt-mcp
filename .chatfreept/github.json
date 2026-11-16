@@ -47,7 +47,8 @@
           "Dependency audit",
           "Workflow policy",
           "Windows adapter contract",
-          "Browser integration contract"
+          "Browser integration contract",
+          "Windows packaging contract"
         ]
       },
       "production": {

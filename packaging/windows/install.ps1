@@ -30,6 +30,9 @@ if ($existed) {
     if ($previous.application -ne $application) {
         throw 'Installation ownership marker is invalid.'
     }
+    if (((Get-Item -LiteralPath $marker -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'Refusing installation with a linked ownership marker.'
+    }
 }
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 if (-not (Test-Path -LiteralPath (Join-Path $repository 'pyproject.toml') -PathType Leaf)) {

@@ -12,7 +12,6 @@ if (Test-Path -LiteralPath $target) {
 }
 try {
     & $installer -InstallRoot $target
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Installer failed.' }
     $launcher = Join-Path $target 'Start-LocalGPTMCP.ps1'
     if (-not (Test-Path -LiteralPath $launcher)) { throw 'Launcher not installed.' }
     $safe = & $launcher

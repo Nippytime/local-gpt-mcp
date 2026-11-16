@@ -17,6 +17,7 @@ EXPECTED_CHECKS = {
         "Workflow policy",
         "Windows adapter contract",
         "Browser integration contract",
+        "Windows packaging contract",
     ],
     "production": ["Release metadata", "Full regression and production build", "Workflow policy"],
 }
