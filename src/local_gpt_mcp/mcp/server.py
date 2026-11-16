@@ -247,7 +247,6 @@ def create_server(
             )
             return {"mime_type": "image/png", "base64": base64.b64encode(data).decode("ascii")}
 
-
     if workflows is not None:
 
         @server.tool()

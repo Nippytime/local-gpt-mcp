@@ -56,7 +56,7 @@ class FakeDriver:
             nonce,
             credentials.read_grant,
             "https://example.com",
-            Capability.BROWSER_READ
+            Capability.BROWSER_READ,
         )
         self.calls.append("check")
         return condition.contains in self.value
