@@ -21,9 +21,7 @@ def validate(data: dict[str, Any]) -> list[str]:
     seen: set[str] = set()
     open_high: list[str] = []
     for entry in records:
-        if not isinstance(entry, dict) or set(entry) != {
-            "id", "severity", "status", "issue", "evidence"
-        }:
+        if not isinstance(entry, dict) or set(entry) != {"id", "severity", "status", "issue", "evidence"}:
             raise ValueError("Invalid release blocker schema")
         identifier = entry["id"]
         if not isinstance(identifier, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", identifier):
