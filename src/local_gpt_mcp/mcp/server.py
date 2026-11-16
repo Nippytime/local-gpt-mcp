@@ -10,6 +10,7 @@ from local_gpt_mcp.pairing.local_approval import ConsoleApproval
 from local_gpt_mcp.pairing.sessions import SessionBroker, SessionDenied
 from local_gpt_mcp.policy import AccessDenied, Capability, PolicyAuthority
 
+
 def _safe_call[T](operation: Callable[[], T]) -> T:
     try:
         return operation()
