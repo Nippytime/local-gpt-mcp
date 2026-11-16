@@ -16,10 +16,11 @@ EXPECTED_CHECKS = {
         "Dependency audit",
         "Workflow policy",
         "Windows adapter contract",
+        "Browser integration contract",
     ],
     "production": ["Release metadata", "Full regression and production build", "Workflow policy"],
 }
-EXPECTED_STAGES = {"fast", "pr", "audit", "release"}
+EXPECTED_STAGES = {"fast", "pr", "audit", "release", "browser"}
 
 
 def load(path: Path) -> dict[str, Any]:
