@@ -27,9 +27,7 @@ from local_gpt_mcp.browser.safe_fetch import public_addresses
 def test_public_dns_rejects_all_non_global_addresses(
     monkeypatch: pytest.MonkeyPatch, addresses: list[str], expected: bool
 ) -> None:
-    def resolve(
-        *args: object, **kwargs: object
-    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+    def resolve(*args: object, **kwargs: object) -> list[tuple[int, int, int, str, tuple[str, int]]]:
         return [
             (socket.AF_INET6 if ":" in address else socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 443))
             for address in addresses

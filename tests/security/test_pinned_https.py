@@ -119,9 +119,7 @@ def test_https_forwarding_strips_untrusted_headers_and_caps_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     channel = FakeConnection(200, b"OK")
-    monkeypatch.setattr(
-        "local_gpt_mcp.browser.safe_fetch.PinnedHTTPSConnection", lambda *a, **k: channel
-    )
+    monkeypatch.setattr("local_gpt_mcp.browser.safe_fetch.PinnedHTTPSConnection", lambda *a, **k: channel)
     result = fetch_public_https(
         "https://example.com/path?name=one",
         "https://example.com",
@@ -156,9 +154,7 @@ def test_redirect_and_oversized_response_are_blocked(
     monkeypatch: pytest.MonkeyPatch, status: int, size: int
 ) -> None:
     channel = FakeConnection(status, b"x" * size)
-    monkeypatch.setattr(
-        "local_gpt_mcp.browser.safe_fetch.PinnedHTTPSConnection", lambda *a, **k: channel
-    )
+    monkeypatch.setattr("local_gpt_mcp.browser.safe_fetch.PinnedHTTPSConnection", lambda *a, **k: channel)
     with pytest.raises(BrowserDenied):
         fetch_public_https("https://example.com/", "https://example.com", "GET", {})
     assert channel.closed
