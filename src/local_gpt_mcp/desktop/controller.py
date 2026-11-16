@@ -14,9 +14,7 @@ MAX_TEXT = 256
 MAX_IMAGE_BYTES = 4_000_000
 MAX_CONTROLS = 64
 MAX_DEPTH = 3
-SAFE_KEYS = frozenset(
-    {"tab", "escape", "backspace", "left", "right", "up", "down", "home", "end"}
-)
+SAFE_KEYS = frozenset({"tab", "escape", "backspace", "left", "right", "up", "down", "home", "end"})
 
 
 class DesktopDenied(PermissionError):
@@ -123,15 +121,11 @@ class DesktopController:
         with self._lock:
             self._authorized(session, nonce, grant, handle, Capability.WINDOW_READ)
             nodes = self._backend.controls(handle, MAX_DEPTH, MAX_CONTROLS)
-            if len(nodes) > MAX_CONTROLS or any(
-                node.depth > MAX_DEPTH or node.depth < 0 for node in nodes
-            ):
+            if len(nodes) > MAX_CONTROLS or any(node.depth > MAX_DEPTH or node.depth < 0 for node in nodes):
                 raise DesktopDenied("UI Automation output exceeded safety limits")
             return nodes
 
-    def click(
-        self, session: str, nonce: str, grant: str, handle: int, x: int, y: int
-    ) -> None:
+    def click(self, session: str, nonce: str, grant: str, handle: int, x: int, y: int) -> None:
         if type(x) is not int or type(y) is not int:
             raise DesktopDenied("Click coordinates must be integer screen pixels")
         with self._lock:
@@ -141,11 +135,7 @@ class DesktopController:
             self._backend.click(handle, x, y)
 
     def type_text(self, session: str, nonce: str, grant: str, handle: int, text: str) -> None:
-        if (
-            not isinstance(text, str)
-            or not 0 < len(text) <= MAX_TEXT
-            or not text.isprintable()
-        ):
+        if not isinstance(text, str) or not 0 < len(text) <= MAX_TEXT or not text.isprintable():
             raise DesktopDenied("Text must be printable and contain 1–256 characters")
         with self._lock:
             self._authorized(session, nonce, grant, handle, Capability.WINDOW_INPUT)
