@@ -45,7 +45,9 @@ def main() -> int:
             outcome.append("Local pairing and a scope grant were accepted")
             # The app intentionally cannot click its own emergency stop.
             # The human must press the visible red STOP button.
-            done.wait(120)
+            for _ in range(240):
+                if authority.stopped or done.wait(0.5):
+                    break
             if not authority.stopped:
                 outcome.append("FAIL: user did not activate emergency stop")
                 return
