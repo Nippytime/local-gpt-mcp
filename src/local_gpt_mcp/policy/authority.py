@@ -11,9 +11,10 @@ import secrets
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Callable, Protocol
+from typing import Protocol
 from urllib.parse import urlsplit
 
 MAX_TTL_SECONDS = 600
