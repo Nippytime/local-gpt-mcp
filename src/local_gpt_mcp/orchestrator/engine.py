@@ -152,8 +152,8 @@ class WorkflowEngine:
                 index = 0
                 self._store.save(plan.plan_id, Checkpoint(digest, 0, "ready"))
             outputs: list[StepOutput] = []
-            for index in range(index, len(plan.steps)):
-                step = plan.steps[index]
+            for position in range(index, len(plan.steps)):
+                step = plan.steps[position]
                 if cancellation.cancelled:
                     raise WorkflowFailure("Workflow cancelled")
                 try:
@@ -172,7 +172,7 @@ class WorkflowEngine:
                         if cancellation.cancelled:
                             raise WorkflowFailure("Workflow cancelled")
                         # Persist uncertainty BEFORE any possible side effect.
-                        self._store.save(plan.plan_id, Checkpoint(digest, index, "started"))
+                        self._store.save(plan.plan_id, Checkpoint(digest, position, "started"))
                     attempts = MAX_READ_ATTEMPTS if step.action in READ_ONLY else 1
                     for attempt in range(attempts):
                         try:
@@ -193,16 +193,16 @@ class WorkflowEngine:
                 except WorkflowFailure:
                     # Started side effects never become implicitly retryable.
                     if step.action not in READ_ONLY and self._store.read(plan.plan_id) == Checkpoint(
-                        digest, index, "started"
+                        digest, position, "started"
                     ):
-                        self._store.save(plan.plan_id, Checkpoint(digest, index, "uncertain"))
+                        self._store.save(plan.plan_id, Checkpoint(digest, position, "uncertain"))
                     raise
-                except Exception as error:
+                except Exception:
                     if step.action not in READ_ONLY:
-                        self._store.save(plan.plan_id, Checkpoint(digest, index, "uncertain"))
+                        self._store.save(plan.plan_id, Checkpoint(digest, position, "uncertain"))
                     # Suppress untrusted page text, underlying URLs and tokens.
                     raise WorkflowFailure("Workflow action failed or timed out") from None
                 outputs.append(StepOutput(step.step_id, result))
-                state = "complete" if index + 1 == len(plan.steps) else "ready"
-                self._store.save(plan.plan_id, Checkpoint(digest, index + 1, state))
+                state = "complete" if position + 1 == len(plan.steps) else "ready"
+                self._store.save(plan.plan_id, Checkpoint(digest, position + 1, state))
             return WorkflowResult(plan.plan_id, len(plan.steps), True, tuple(outputs))
