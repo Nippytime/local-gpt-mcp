@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from local_gpt_mcp import package_version
 
@@ -25,6 +26,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="HTTPS_ORIGIN",
         help="Locally opt into one isolated Chromium tab on an exact public HTTPS origin",
     )
+    parser.add_argument(
+        "--workflow-state-dir",
+        type=Path,
+        help="Trusted local checkpoint directory; checkpoints contain hashes only",
+    )
     args = parser.parse_args(argv)
     if args.allow_window and not args.stdio:
         parser.error("--allow-window requires --stdio")
@@ -34,13 +40,22 @@ def main(argv: list[str] | None = None) -> int:
         from local_gpt_mcp.browser.controller import approved_origin
 
         approved_origin(args.browser_origin)
+    if args.workflow_state_dir and (not args.stdio or not (args.browser_origin or args.allow_window)):
+        parser.error("--workflow-state-dir needs --stdio and a locally selected adapter")
     if args.version:
         print(package_version())
     elif args.stdio:
         from local_gpt_mcp.mcp.server import serve_stdio
 
         if args.allow_window or args.browser_origin:
-            serve_stdio(tuple(args.allow_window), browser_origin=args.browser_origin)
+            if args.workflow_state_dir:
+                serve_stdio(
+                    tuple(args.allow_window),
+                    browser_origin=args.browser_origin,
+                    workflow_state_dir=args.workflow_state_dir,
+                )
+            else:
+                serve_stdio(tuple(args.allow_window), browser_origin=args.browser_origin)
         else:
             serve_stdio()
     else:

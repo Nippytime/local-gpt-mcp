@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from mcp.server import MCPServer
@@ -13,6 +14,11 @@ from playwright.async_api import Error as PlaywrightError
 
 from local_gpt_mcp.browser import BrowserController, BrowserDenied
 from local_gpt_mcp.desktop.controller import DesktopController, DesktopDenied
+from local_gpt_mcp.orchestrator.driver import ScopedDriver
+from local_gpt_mcp.orchestrator.engine import WorkflowEngine, WorkflowFailure
+from local_gpt_mcp.orchestrator.local_approval import ConsoleActionApproval
+from local_gpt_mcp.orchestrator.models import SessionGrants, Step, WorkflowPlan
+from local_gpt_mcp.orchestrator.store import FileCheckpointStore, MemoryCheckpointStore
 from local_gpt_mcp.pairing.local_approval import ConsoleApproval
 from local_gpt_mcp.pairing.sessions import SessionBroker, SessionDenied
 from local_gpt_mcp.policy import AccessDenied, Capability, PolicyAuthority
@@ -38,6 +44,7 @@ def create_server(
     desktop: DesktopController | None = None,
     browser: BrowserController | None = None,
     lifespan: Any = None,
+    workflows: WorkflowEngine | None = None,
 ) -> MCPServer:
     """Register scoped local tools, optionally with a temporary browser lifespan."""
     server = MCPServer("Local GPT MCP", lifespan=lifespan)
@@ -240,11 +247,50 @@ def create_server(
             )
             return {"mime_type": "image/png", "base64": base64.b64encode(data).decode("ascii")}
 
+
+    if workflows is not None:
+
+        @server.tool()
+        async def workflow_execute(
+            session_token: str,
+            client_nonce: str,
+            read_grant_token: str,
+            input_grant_token: str,
+            plan_id: str,
+            steps: list[Step],
+            resume: bool = False,
+        ) -> dict[str, Any]:
+            """Run at most eight typed actions; each mutation requires local human confirmation."""
+            # This nonce is consumed immediately; each adapter action uses its
+            # own cryptographically random nonce through the trusted broker.
+            _safe_call(lambda: broker.status(session_token, client_nonce))
+            try:
+                plan = WorkflowPlan(plan_id, tuple(steps))
+                result = await workflows.run(
+                    plan,
+                    SessionGrants(session_token, read_grant_token, input_grant_token),
+                    resume=resume,
+                )
+            except (WorkflowFailure, AccessDenied, SessionDenied, ValueError, PermissionError):
+                raise ToolError("Workflow denied, stopped, or requires manual reconciliation") from None
+            return {
+                "plan_id": result.plan_id,
+                "completed": result.completed,
+                "finished": result.finished,
+                "results": [
+                    {"step_id": value.step_id, "result": value.result} for value in result.outputs
+                ],
+            }
+
     return server
 
 
-def serve_stdio(allow_windows: tuple[int, ...] = (), browser_origin: str | None = None) -> None:
-    """Local-only stdio; UI/browser scopes must be selected at local launch."""
+def serve_stdio(
+    allow_windows: tuple[int, ...] = (),
+    browser_origin: str | None = None,
+    workflow_state_dir: Path | None = None,
+) -> None:
+    """Local-only stdio; UI/browser scopes and persistence selected locally."""
     authority = PolicyAuthority(ConsoleApproval())
     broker = SessionBroker(authority)
     desktop = None
@@ -265,4 +311,17 @@ def serve_stdio(allow_windows: tuple[int, ...] = (), browser_origin: str | None 
                 yield
 
         lifespan = browser_lifespan
-    create_server(broker, desktop, browser, lifespan).run(transport="stdio")
+    workflows = None
+    if desktop is not None or browser is not None:
+        store = (
+            FileCheckpointStore(workflow_state_dir)
+            if workflow_state_dir is not None
+            else MemoryCheckpointStore()
+        )
+        workflows = WorkflowEngine(
+            broker,
+            ScopedDriver(browser=browser, desktop=desktop),
+            store,
+            ConsoleActionApproval(),
+        )
+    create_server(broker, desktop, browser, lifespan, workflows).run(transport="stdio")
