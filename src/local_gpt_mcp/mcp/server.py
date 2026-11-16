@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
-
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
@@ -12,10 +10,7 @@ from local_gpt_mcp.pairing.local_approval import ConsoleApproval
 from local_gpt_mcp.pairing.sessions import SessionBroker, SessionDenied
 from local_gpt_mcp.policy import AccessDenied, Capability, PolicyAuthority
 
-T = TypeVar("T")
-
-
-def _safe_call(operation: Callable[[], T]) -> T:
+def _safe_call[T](operation: Callable[[], T]) -> T:
     try:
         return operation()
     except (AccessDenied, SessionDenied, ValueError, TypeError):
