@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
