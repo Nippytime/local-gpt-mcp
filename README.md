@@ -1,11 +1,29 @@
 # Local GPT MCP
 
-A user-approved local computer-control companion for ChatGPT. Development integrates on `dev`; `main` is the production branch.
+A consent-first Windows desktop companion for ChatGPT-compatible MCP integrations. This repository is currently a **toolchain scaffold**. It cannot yet remotely control a computer or browser.
+
+## Develop and verify
+
+Prerequisites: Python 3.12+, Git, and Bash (Git Bash works on Windows).
+
+~~~bash
+./scripts/bootstrap --ci
+./ci/run fast
+./ci/run pr
+./ci/run audit
+~~~
+
+CI reports are written to `artifacts/ci/<stage>.json`. All stages fail closed on invalid configuration, missing commands, or failed checks. PR Actions are required to pass before merge.
 
 ## Security boundary
 
-Desktop and browser actions require an explicit, scoped grant from the human at the computer. Sessions are visible, revocable, logged, and deny-by-default. No unattended takeover, silent privilege escalation, or bypass of operating-system approval is supported.
+No device or browser action will run without an explicit, locally approved, narrowly scoped, revocable session. Denial, expiration, and emergency stop are enforced on-device. The application must not bypass Windows permission prompts, secure desktops, browser security controls, or account authentication.
 
-## Project state
+## Project tracking
 
-Planning and CI setup are tracked in [GitHub Issues](https://github.com/Nippytime/local-gpt-mcp/issues). The implementation plan is maintained at `docs/MASTER_PLAN.md` on `dev`.
+- [Master plan](docs/MASTER_PLAN.md)
+- [CI contract](docs/CHATFREEPT_CI.md)
+- [Control Issue](https://github.com/Nippytime/local-gpt-mcp/issues/1)
+- `dev` for integration and `main` for production
+
+The source for reviewed, runtime-neutral CI design is [mlookhere/CI-Pipline](https://github.com/mlookhere/CI-Pipline). This project uses ChatGPT with its GitHub connector, not a secondary autonomous coding agent.
