@@ -82,7 +82,7 @@ class FakePage:
         self.url = url
 
     def locator(self, selector: str) -> FakeLocator:
-        return self.elements[selector]
+        return self.elements.get(selector, FakeLocator())
 
     async def screenshot(self, **kwargs: Any) -> bytes:
         self.masked = bool(kwargs.get("mask"))
