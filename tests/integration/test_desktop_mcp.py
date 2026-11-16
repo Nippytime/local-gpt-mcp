@@ -106,8 +106,14 @@ async def test_mcp_requires_pairing_and_separate_grant_for_every_effect() -> Non
         base: dict[str, Any] = {"handle": 41}
         unauthorized = await client.call_tool(
             "desktop_click",
-            {**base, "session_token": "invalid", "client_nonce": nonce(),
-             "grant_token": "invalid", "x": 50, "y": 50},
+            {
+                **base,
+                "session_token": "invalid",
+                "client_nonce": nonce(),
+                "grant_token": "invalid",
+                "x": 50,
+                "y": 50,
+            },
         )
         assert unauthorized.is_error
         assert native.effects == []
@@ -133,9 +139,7 @@ async def test_mcp_requires_pairing_and_separate_grant_for_every_effect() -> Non
         grant = grant_result.structured_content["grant_token"]
         authorized = {**base, "session_token": session, "grant_token": grant}
 
-        observation = await client.call_tool(
-            "desktop_window_info", {**authorized, "client_nonce": nonce()}
-        )
+        observation = await client.call_tool("desktop_window_info", {**authorized, "client_nonce": nonce()})
         assert not observation.is_error
         assert observation.structured_content is not None
         assert observation.structured_content["width"] == 300
@@ -151,9 +155,7 @@ async def test_mcp_requires_pairing_and_separate_grant_for_every_effect() -> Non
             ("desktop_scroll", {"steps": 1}),
             ("desktop_key", {"key": "tab"}),
         ):
-            result = await client.call_tool(
-                tool, {**authorized, **fields, "client_nonce": nonce()}
-            )
+            result = await client.call_tool(tool, {**authorized, **fields, "client_nonce": nonce()})
             assert not result.is_error
         assert native.effects == ["click", "type", "scroll", "key"]
 
