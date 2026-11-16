@@ -25,9 +25,7 @@ def test_missing_distribution(monkeypatch: pytest.MonkeyPatch) -> None:
     assert package_version() == "0+uninstalled"
 
 
-def test_module_entrypoint(
-    monkeypatch: pytest.MonkeyPatch, capsys: CaptureFixture[str]
-) -> None:
+def test_module_entrypoint(monkeypatch: pytest.MonkeyPatch, capsys: CaptureFixture[str]) -> None:
     import runpy
     import sys
 
