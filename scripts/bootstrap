@@ -15,7 +15,7 @@ fi
 VENV_PYTHON="$(resolve_python "$ROOT")"
 if [[ "$VENV_PYTHON" == "$SYSTEM_PYTHON" ]]; then echo 'Virtual environment unavailable.' >&2; exit 1; fi
 "$VENV_PYTHON" -m pip install --disable-pip-version-check -r "$ROOT/ci/requirements-ci.txt"
-"$VENV_PYTHON" -m pip install --disable-pip-version-check --no-deps -e "$ROOT"
+"$VENV_PYTHON" -m pip install --disable-pip-version-check -e "$ROOT"
 for module in pytest ruff mypy pip_audit build; do
   "$VENV_PYTHON" -c "import importlib; importlib.import_module('$module')" || { echo "Missing CI tool: $module" >&2; exit 1; }
 done
