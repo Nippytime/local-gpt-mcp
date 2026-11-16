@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
-import os
 import sys
 from collections.abc import Callable
 from types import SimpleNamespace
@@ -11,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from local_gpt_mcp.desktop import ControlInfo, DesktopDenied, Rect, WindowIdentity, WindowInfo
+from local_gpt_mcp.desktop import ControlInfo, DesktopDenied, Rect, WindowIdentity
 from local_gpt_mcp.desktop.windows import (
     KEYEVENTF_UNICODE,
     MOUSEEVENTF_LEFTDOWN,
