@@ -14,7 +14,7 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Protocol
+from typing import NoReturn, Protocol
 from urllib.parse import urlsplit
 
 MAX_TTL_SECONDS = 600
@@ -142,7 +142,7 @@ class PolicyAuthority:
     def _record(self, operation: str, result: str, reason: str) -> None:
         self._events.append(AuditEvent(operation, result, reason))
 
-    def _deny(self, operation: str, reason: str) -> None:
+    def _deny(self, operation: str, reason: str) -> NoReturn:
         self._record(operation, "denied", reason)
         raise AccessDenied(f"{operation} denied: {reason}")
 
