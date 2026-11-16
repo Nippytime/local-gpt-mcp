@@ -12,11 +12,11 @@ from playwright.async_api import (
     Locator,
     Page,
     Playwright,
-    Error as PlaywrightError,
     Route,
     WebSocketRoute,
     async_playwright,
 )
+from playwright.async_api import Error as PlaywrightError
 
 from local_gpt_mcp.browser.controller import (
     BrowserController,
