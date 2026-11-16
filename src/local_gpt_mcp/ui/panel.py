@@ -88,10 +88,14 @@ class LocalSafetyPanel:
             tk.Label(root, textvariable=scope_text, justify="left", wraplength=490, anchor="w").pack(
                 anchor="w", pady=(0, 12)
             )
+            def stop_and_close() -> None:
+                self.stop()
+                root.destroy()
+
             stop_button = tk.Button(
                 root,
                 text="EMERGENCY STOP — REVOKE ALL ACCESS",
-                command=lambda: (self.stop(), root.destroy()),
+                command=stop_and_close,
                 bg="#aa2222",
                 fg="white",
                 font=("Segoe UI", 11, "bold"),
@@ -165,7 +169,7 @@ class LocalSafetyPanel:
                     finish("DENY")
                 root.after(150, tick)
 
-            root.protocol("WM_DELETE_WINDOW", lambda: (self.stop(), root.destroy()))
+            root.protocol("WM_DELETE_WINDOW", stop_and_close)
             self._inbox.start()
             self._ready.set()
             tick()
