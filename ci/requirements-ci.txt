@@ -13,3 +13,4 @@ Pillow==13.0.0; sys_platform == "win32"
 pywin32==312; sys_platform == "win32"
 psutil>=7.1.0; sys_platform == "win32"
 uiautomation==2.0.29; sys_platform == "win32"
+playwright==1.65.2

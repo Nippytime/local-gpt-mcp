@@ -46,7 +46,8 @@
           "PR test/build gates",
           "Dependency audit",
           "Workflow policy",
-          "Windows adapter contract"
+          "Windows adapter contract",
+          "Browser integration contract"
         ]
       },
       "production": {

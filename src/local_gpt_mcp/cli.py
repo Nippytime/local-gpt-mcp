@@ -20,16 +20,27 @@ def main(argv: list[str] | None = None) -> int:
         metavar="HWND",
         help="Locally select a currently foreground Windows window for this session",
     )
+    parser.add_argument(
+        "--browser-origin",
+        metavar="HTTPS_ORIGIN",
+        help="Locally opt into one isolated Chromium tab on an exact public HTTPS origin",
+    )
     args = parser.parse_args(argv)
     if args.allow_window and not args.stdio:
         parser.error("--allow-window requires --stdio")
+    if args.browser_origin and not args.stdio:
+        parser.error("--browser-origin requires --stdio")
+    if args.browser_origin:
+        from local_gpt_mcp.browser.controller import approved_origin
+
+        approved_origin(args.browser_origin)
     if args.version:
         print(package_version())
     elif args.stdio:
         from local_gpt_mcp.mcp.server import serve_stdio
 
-        if args.allow_window:
-            serve_stdio(tuple(args.allow_window))
+        if args.allow_window or args.browser_origin:
+            serve_stdio(tuple(args.allow_window), browser_origin=args.browser_origin)
         else:
             serve_stdio()
     else:
