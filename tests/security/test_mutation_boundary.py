@@ -129,11 +129,12 @@ async def test_local_approval_is_required_for_every_distinct_effect() -> None:
     async with Client(create_server(f.broker, browser=f.browser, direct_action_approval=gate)) as client:
         navigate = await client.call_tool("browser_navigate", f.arguments(f.nonce()))
         assert not navigate.is_error
-        for tool, fields in [
+        actions: list[tuple[str, dict[str, str | int]]] = [
             ("browser_click", {"selector": "#open"}),
             ("browser_fill", {"selector": "#name", "text": "safe"}),
             ("browser_scroll", {"steps": 1}),
-        ]:
+        ]
+        for tool, fields in actions:
             base = f.arguments(f.nonce())
             base.pop("url")
             result = await client.call_tool(tool, {**base, **fields})
