@@ -88,12 +88,20 @@ class UiNode:
     IsPassword = False
 
     def GetChildren(self) -> list[UiNode | SimpleNamespace]:
-        return [SimpleNamespace(ControlTypeName="EditControl", Name="SECRET", IsPassword=True)]
+        return [
+            SimpleNamespace(
+                ControlTypeName="EditControl",
+                Name="SECRET",
+                IsPassword=True,
+                GetChildren=lambda: [],
+            )
+        ]
 
 
 def fake_native(monkeypatch: pytest.MonkeyPatch) -> WindowsBackend:
     backend = WindowsBackend.__new__(WindowsBackend)
     backend._stopped = lambda: False
+    backend._trusted = frozenset()
     backend._gui = Gui()
     backend._proc = SimpleNamespace(GetWindowThreadProcessId=lambda hwnd: (1, 1001))
     backend._psutil = SimpleNamespace(Process=Process)
