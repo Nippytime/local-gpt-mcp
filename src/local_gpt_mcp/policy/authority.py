@@ -163,7 +163,9 @@ class PolicyAuthority:
 
     def issue(self, request: GrantRequest) -> str:
         caller = request.caller
-        if not all(valid_identifier(value) for value in (caller.user_id, caller.device_id, caller.session_id)):
+        if not all(
+            valid_identifier(value) for value in (caller.user_id, caller.device_id, caller.session_id)
+        ):
             with self._lock:
                 self._deny("grant", "invalid identity")
         if type(request.ttl_seconds) is not int or not 0 < request.ttl_seconds <= MAX_TTL_SECONDS:
@@ -185,7 +187,9 @@ class PolicyAuthority:
             if not approved:
                 self._deny("grant", "local approval required")
             token = secrets.token_urlsafe(32)
-            self._grants[token] = _Grant(caller, request.target, request.capabilities, self._clock() + request.ttl_seconds)
+            self._grants[token] = _Grant(
+                caller, request.target, request.capabilities, self._clock() + request.ttl_seconds
+            )
             self._record("grant", "allowed", "local approval")
             return token
 
