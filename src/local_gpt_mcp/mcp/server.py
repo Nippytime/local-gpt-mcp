@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import base64
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from typing import Any
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from playwright.async_api import Error as PlaywrightError
 
+from local_gpt_mcp.browser import BrowserController, BrowserDenied
 from local_gpt_mcp.desktop.controller import DesktopController, DesktopDenied
 from local_gpt_mcp.pairing.local_approval import ConsoleApproval
 from local_gpt_mcp.pairing.sessions import SessionBroker, SessionDenied
@@ -22,9 +26,21 @@ def _safe_call[T](operation: Callable[[], T]) -> T:
         raise ToolError("Local authority denied the request") from None
 
 
-def create_server(broker: SessionBroker, desktop: DesktopController | None = None) -> MCPServer:
-    """Register scoped session tools on the official spec-compatible MCP server."""
-    server = MCPServer("Local GPT MCP")
+async def _safe_async[T](operation: Callable[[], Awaitable[T]]) -> T:
+    try:
+        return await operation()
+    except (AccessDenied, SessionDenied, BrowserDenied, PlaywrightError, ValueError, TypeError, OSError):
+        raise ToolError("Local authority denied the browser request") from None
+
+
+def create_server(
+    broker: SessionBroker,
+    desktop: DesktopController | None = None,
+    browser: BrowserController | None = None,
+    lifespan: Any = None,
+) -> MCPServer:
+    """Register scoped local tools, optionally with a temporary browser lifespan."""
+    server = MCPServer("Local GPT MCP", lifespan=lifespan)
 
     @server.resource("local-gpt://about")
     def about() -> str:
@@ -153,11 +169,83 @@ def create_server(broker: SessionBroker, desktop: DesktopController | None = Non
             _safe_call(lambda: desktop.press_key(session_token, client_nonce, grant_token, handle, key))
             return {"executed": True}
 
+
+    if browser is not None:
+
+        @server.tool()
+        def browser_selected_tabs(session_token: str, client_nonce: str) -> list[dict[str, str]]:
+            """List only the isolated tabs selected at local startup, after pairing."""
+            _safe_call(lambda: broker.status(session_token, client_nonce))
+            return [{"tab_id": tab.tab_id, "origin": tab.origin} for tab in browser.selected_tabs()]
+
+        @server.tool()
+        async def browser_navigate(
+            session_token: str, client_nonce: str, grant_token: str, tab_id: str, url: str
+        ) -> dict[str, str]:
+            """Navigate within the exact approved HTTPS origin."""
+            destination = await _safe_async(
+                lambda: browser.navigate(session_token, client_nonce, grant_token, tab_id, url)
+            )
+            return {"url": destination}
+
+        @server.tool()
+        async def browser_read(
+            session_token: str, client_nonce: str, grant_token: str, tab_id: str, selector: str
+        ) -> dict[str, str]:
+            """Read bounded visible text, never editable control values."""
+            value = await _safe_async(
+                lambda: browser.read(session_token, client_nonce, grant_token, tab_id, selector)
+            )
+            return {"text": value}
+
+        @server.tool()
+        async def browser_click(
+            session_token: str, client_nonce: str, grant_token: str, tab_id: str, selector: str
+        ) -> dict[str, bool]:
+            """Click one visible, nonsensitive element in the approved tab."""
+            await _safe_async(lambda: browser.click(session_token, client_nonce, grant_token, tab_id, selector))
+            return {"executed": True}
+
+        @server.tool()
+        async def browser_fill(
+            session_token: str,
+            client_nonce: str,
+            grant_token: str,
+            tab_id: str,
+            selector: str,
+            text: str,
+        ) -> dict[str, bool]:
+            """Fill a non-sensitive visible input; password/payment fields are prohibited."""
+            await _safe_async(
+                lambda: browser.fill(session_token, client_nonce, grant_token, tab_id, selector, text)
+            )
+            return {"executed": True}
+
+        @server.tool()
+        async def browser_scroll(
+            session_token: str, client_nonce: str, grant_token: str, tab_id: str, steps: int
+        ) -> dict[str, bool]:
+            """Scroll only within the approved browser tab."""
+            await _safe_async(
+                lambda: browser.scroll(session_token, client_nonce, grant_token, tab_id, steps)
+            )
+            return {"executed": True}
+
+        @server.tool()
+        async def browser_capture(
+            session_token: str, client_nonce: str, grant_token: str, tab_id: str
+        ) -> dict[str, str]:
+            """Screenshot selected tab with all editable controls masked."""
+            data = await _safe_async(
+                lambda: browser.capture(session_token, client_nonce, grant_token, tab_id)
+            )
+            return {"mime_type": "image/png", "base64": base64.b64encode(data).decode("ascii")}
+
     return server
 
 
-def serve_stdio(allow_windows: tuple[int, ...] = ()) -> None:
-    """Local-only stdio; no window can be granted without explicit local selection."""
+def serve_stdio(allow_windows: tuple[int, ...] = (), browser_origin: str | None = None) -> None:
+    """Local-only stdio; UI/browser scopes must be selected at local launch."""
     authority = PolicyAuthority(ConsoleApproval())
     broker = SessionBroker(authority)
     desktop = None
@@ -167,4 +255,15 @@ def serve_stdio(allow_windows: tuple[int, ...] = ()) -> None:
         backend = WindowsBackend(stopped=lambda: authority.stopped)
         allowed = backend.trust_local(allow_windows)
         desktop = DesktopController(broker, backend, allowed)
-    create_server(broker, desktop).run(transport="stdio")
+    browser = BrowserController(broker) if browser_origin else None
+    lifespan = None
+    if browser is not None and browser_origin is not None:
+        from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession
+
+        @asynccontextmanager
+        async def browser_lifespan(_server: MCPServer) -> AsyncIterator[None]:
+            async with IsolatedBrowserSession(browser_origin, browser):
+                yield
+
+        lifespan = browser_lifespan
+    create_server(broker, desktop, browser, lifespan).run(transport="stdio")
