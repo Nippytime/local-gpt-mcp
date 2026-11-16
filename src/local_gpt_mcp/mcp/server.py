@@ -45,7 +45,7 @@ def create_server(
     @server.resource("local-gpt://about")
     def about() -> str:
         """Public, non-sensitive server capability summary."""
-        return "Local GPT MCP: stdio only; no desktop or browser operations are enabled."
+        return "Local GPT MCP: stdio only; desktop and browser tools require local authorization."
 
     @server.tool()
     def session_open(user_id: str, device_id: str, client_nonce: str) -> dict[str, str | int]:

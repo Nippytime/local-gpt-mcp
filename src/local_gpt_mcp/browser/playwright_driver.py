@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable
 from typing import Self
 
 from playwright.async_api import (
