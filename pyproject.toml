@@ -7,7 +7,7 @@ name = "local-gpt-mcp"
 version = "0.1.0"
 description = "Consent-first local MCP desktop companion"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["mcp==2.3.0"]
 
 [project.scripts]
 local-gpt-mcp = "local_gpt_mcp.cli:main"

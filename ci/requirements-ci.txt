@@ -8,3 +8,4 @@ build>=1.5.0
 pre-commit>=4.6.2
 setuptools>=80
 wheel>=0.45
+mcp==2.3.0
