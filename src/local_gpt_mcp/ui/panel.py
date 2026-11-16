@@ -88,6 +88,7 @@ class LocalSafetyPanel:
             tk.Label(root, textvariable=scope_text, justify="left", wraplength=490, anchor="w").pack(
                 anchor="w", pady=(0, 12)
             )
+
             def stop_and_close() -> None:
                 self.stop()
                 root.destroy()
@@ -143,17 +144,19 @@ class LocalSafetyPanel:
                 nonlocal pending
                 if self._authority is not None:
                     snapshot = self._authority.local_status()
-                    status.configure(
-                        text=(
-                            "STOPPED — ALL ACCESS REVOKED"
-                            if snapshot.stopped
-                            else (
-                                f"ACTIVE: {snapshot.paired_devices} paired device(s), "
-                                f"{len(snapshot.active_scopes)} grant(s)"
-                            )
-                        ),
-                        fg="#aa2222" if snapshot.stopped else "#156e31",
-                    )
+                    if snapshot.stopped:
+                        label, color = "STOPPED — ALL ACCESS REVOKED", "#aa2222"
+                    elif snapshot.active_scopes:
+                        label = (
+                            f"ACTIVE: {snapshot.paired_devices} paired device(s), "
+                            f"{len(snapshot.active_scopes)} grant(s)"
+                        )
+                        color = "#156e31"
+                    elif snapshot.paired_devices:
+                        label, color = "PAIRED — NO ACTIVE GRANTS", "#666666"
+                    else:
+                        label, color = "NO APPROVED ACCESS", "#666666"
+                    status.configure(text=label, fg=color)
                     scope_text.set("\n".join(snapshot.active_scopes[:8]) or "None")
                     audit.delete(0, tk.END)
                     for event in snapshot.audit[-15:]:
