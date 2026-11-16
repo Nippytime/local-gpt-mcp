@@ -1,5 +1,86 @@
 {
   "version": 1,
+  "commands": {
+    "policy": [
+      [
+        "@python",
+        "workflow/self_test.py"
+      ],
+      [
+        "@python",
+        "workflow/check_workflow_policy.py"
+      ]
+    ],
+    "format": [
+      [
+        "@python",
+        "-m",
+        "ruff",
+        "format",
+        "--check",
+        "."
+      ]
+    ],
+    "lint": [
+      [
+        "@python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ]
+    ],
+    "typecheck": [
+      [
+        "@python",
+        "-m",
+        "mypy"
+      ]
+    ],
+    "unit": [
+      [
+        "@python",
+        "-m",
+        "pytest",
+        "-q"
+      ]
+    ],
+    "coverage": [
+      [
+        "@python",
+        "-m",
+        "pytest",
+        "-q",
+        "--cov=src/local_gpt_mcp",
+        "--cov-report=term",
+        "--cov-fail-under=80"
+      ]
+    ],
+    "build": [
+      [
+        "@python",
+        "-m",
+        "build",
+        "--no-isolation"
+      ]
+    ],
+    "audit": [
+      [
+        "@python",
+        "-m",
+        "pip_audit",
+        "-r",
+        "ci/requirements-ci.txt",
+        "--strict"
+      ]
+    ],
+    "secrets": [
+      [
+        "@python",
+        "workflow/check_secrets.py"
+      ]
+    ]
+  },
   "stages": {
     "fast": [
       "policy",
@@ -28,36 +109,6 @@
       "audit",
       "secrets",
       "build"
-    ]
-  },
-  "commands": {
-    "policy": [
-      "python workflow/self_test.py",
-      "python workflow/check_workflow_policy.py"
-    ],
-    "format": [
-      "ruff format --check ."
-    ],
-    "lint": [
-      "ruff check ."
-    ],
-    "typecheck": [
-      "mypy"
-    ],
-    "unit": [
-      "pytest -q"
-    ],
-    "coverage": [
-      "pytest -q --cov=src/local_gpt_mcp --cov-report=term --cov-fail-under=80"
-    ],
-    "build": [
-      "python -m build --no-isolation"
-    ],
-    "audit": [
-      "pip-audit -r ci/requirements-ci.txt --strict"
-    ],
-    "secrets": [
-      "python workflow/check_secrets.py"
     ]
   },
   "quality": {

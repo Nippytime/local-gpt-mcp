@@ -1,0 +1,29 @@
+name: Security and supply chain
+
+on:
+  pull_request:
+    branches: [dev, main]
+  merge_group:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-policy:
+    name: Workflow policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify repository contract
+        run: python3 workflow/self_test.py
+      - name: Inspect workflows for privilege and injection hazards
+        run: python3 workflow/check_workflow_policy.py
+      - name: Reject tracked secrets
+        run: python3 workflow/check_secrets.py
