@@ -91,7 +91,7 @@ class WindowsBackend:
     def __init__(self, stopped: Callable[[], bool] = lambda: False) -> None:
         if sys.platform != "win32" or os.name != "nt":
             raise DesktopDenied("Windows interactive desktop is required")
-        self._stopped = stopped
+        self._stopped: Callable[[], bool] = stopped
         self._gui: Any = import_module("win32gui")
         self._api: Any = import_module("win32api")
         self._proc: Any = import_module("win32process")
@@ -205,7 +205,12 @@ class WindowsBackend:
 
     def windows(self) -> tuple[WindowInfo, ...]:
         handles: list[int] = []
-        self._gui.EnumWindows(lambda hwnd, _: handles.append(int(hwnd)) or True, None)
+
+        def collect(hwnd: int, _: object) -> bool:
+            handles.append(int(hwnd))
+            return True
+
+        self._gui.EnumWindows(collect, None)
         return tuple(info for hwnd in handles if (info := self.window(hwnd)) is not None)
 
     def trust_local(self, handles: Iterable[int]) -> frozenset[WindowIdentity]:
