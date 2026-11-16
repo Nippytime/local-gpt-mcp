@@ -78,7 +78,6 @@ def create_server(broker: SessionBroker, desktop: DesktopController | None = Non
         _safe_call(lambda: broker.stop(session_token, client_nonce))
         return {"stopped": True}
 
-
     if desktop is not None:
 
         @server.tool()
@@ -86,6 +85,7 @@ def create_server(broker: SessionBroker, desktop: DesktopController | None = Non
             session_token: str, client_nonce: str, grant_token: str, handle: int
         ) -> dict[str, str | int]:
             """Read an explicitly approved foreground window's title and dimensions."""
+
             def inspect() -> dict[str, str | int]:
                 info = desktop.describe(session_token, client_nonce, grant_token, handle)
                 return {
@@ -94,6 +94,7 @@ def create_server(broker: SessionBroker, desktop: DesktopController | None = Non
                     "width": info.rect.width,
                     "height": info.rect.height,
                 }
+
             return _safe_call(inspect)
 
         @server.tool()
@@ -101,9 +102,11 @@ def create_server(broker: SessionBroker, desktop: DesktopController | None = Non
             session_token: str, client_nonce: str, grant_token: str, handle: int
         ) -> dict[str, str]:
             """Read a PNG of only the approved window, never the entire screen."""
+
             def grab() -> dict[str, str]:
                 data = desktop.capture(session_token, client_nonce, grant_token, handle)
                 return {"mime_type": "image/png", "base64": base64.b64encode(data).decode("ascii")}
+
             return _safe_call(grab)
 
         @server.tool()
@@ -111,9 +114,11 @@ def create_server(broker: SessionBroker, desktop: DesktopController | None = Non
             session_token: str, client_nonce: str, grant_token: str, handle: int
         ) -> list[dict[str, str | int]]:
             """Read a bounded UI Automation tree without editable field contents."""
+
             def inspect() -> list[dict[str, str | int]]:
                 nodes = desktop.inspect(session_token, client_nonce, grant_token, handle)
                 return [{"role": n.role, "name": n.name, "depth": n.depth} for n in nodes]
+
             return _safe_call(inspect)
 
         @server.tool()
