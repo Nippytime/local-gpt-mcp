@@ -61,8 +61,11 @@ class Fixture:
         assert isinstance(s, str)
         self.session = s
         grant = self.broker.request_grant(
-            s, self.nonce(), "https://example.com",
-            frozenset({Capability.BROWSER_READ, Capability.BROWSER_INPUT}), 60,
+            s,
+            self.nonce(),
+            "https://example.com",
+            frozenset({Capability.BROWSER_READ, Capability.BROWSER_INPUT}),
+            60,
         )["grant_token"]
         assert isinstance(grant, str)
         self.grant = grant
@@ -72,9 +75,7 @@ class Fixture:
         return f"{self.index:032x}"
 
     async def navigate(self, url: str = "https://example.com/home") -> str:
-        return await self.browser.navigate(
-            self.session, self.nonce(), self.grant, self.tab.tab_id, url
-        )
+        return await self.browser.navigate(self.session, self.nonce(), self.grant, self.tab.tab_id, url)
 
 
 @pytest.fixture
@@ -158,8 +159,11 @@ async def test_unselected_tabs_not_exposed() -> None:
 async def test_read_only_grant_cannot_edit() -> None:
     f = Fixture()
     read = f.broker.request_grant(
-        f.session, f.nonce(), "https://example.com",
-        frozenset({Capability.BROWSER_READ}), 60,
+        f.session,
+        f.nonce(),
+        "https://example.com",
+        frozenset({Capability.BROWSER_READ}),
+        60,
     )["grant_token"]
     assert isinstance(read, str)
     await f.navigate()

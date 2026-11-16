@@ -10,7 +10,8 @@ from typing import Protocol
 from urllib.parse import urlsplit
 
 from local_gpt_mcp.pairing import SessionBroker
-from local_gpt_mcp.policy import Capability, valid_target
+from local_gpt_mcp.policy import Capability
+from local_gpt_mcp.policy.authority import valid_target
 
 MAX_SCREENSHOT_BYTES = 4_000_000
 MAX_TEXT_LENGTH = 2048
@@ -131,9 +132,7 @@ class BrowserController:
             raise BrowserDenied("Invalid bounded CSS selector")
         return selector
 
-    async def navigate(
-        self, session: str, nonce: str, grant: str, tab_id: str, url: str
-    ) -> str:
+    async def navigate(self, session: str, nonce: str, grant: str, tab_id: str, url: str) -> str:
         if not isinstance(url, str) or len(url) > 2048:
             raise BrowserDenied("Invalid navigation URL")
         async with self._lock:
@@ -147,9 +146,7 @@ class BrowserController:
                 raise BrowserDenied("Navigation redirected outside approved origin")
             return page.url[:2048]
 
-    async def read(
-        self, session: str, nonce: str, grant: str, tab_id: str, selector: str
-    ) -> str:
+    async def read(self, session: str, nonce: str, grant: str, tab_id: str, selector: str) -> str:
         selector = self._selector(selector)
         async with self._lock:
             origin, page = self._authorized(session, nonce, grant, tab_id, Capability.BROWSER_READ)
@@ -158,9 +155,7 @@ class BrowserController:
                 raise BrowserDenied("Tab changed origin during reading")
             return value[:MAX_TEXT_LENGTH]
 
-    async def click(
-        self, session: str, nonce: str, grant: str, tab_id: str, selector: str
-    ) -> None:
+    async def click(self, session: str, nonce: str, grant: str, tab_id: str, selector: str) -> None:
         selector = self._selector(selector)
         async with self._lock:
             origin, page = self._authorized(session, nonce, grant, tab_id, Capability.BROWSER_INPUT)
@@ -168,9 +163,7 @@ class BrowserController:
             if origin_of(page.url) != origin:
                 raise BrowserDenied("Click changed the approved origin")
 
-    async def fill(
-        self, session: str, nonce: str, grant: str, tab_id: str, selector: str, text: str
-    ) -> None:
+    async def fill(self, session: str, nonce: str, grant: str, tab_id: str, selector: str, text: str) -> None:
         selector = self._selector(selector)
         if not isinstance(text, str) or not 0 < len(text) <= MAX_FILL_LENGTH or not text.isprintable():
             raise BrowserDenied("Text must be 1–256 printable characters")
@@ -180,9 +173,7 @@ class BrowserController:
             if origin_of(page.url) != origin:
                 raise BrowserDenied("Tab changed origin during editing")
 
-    async def scroll(
-        self, session: str, nonce: str, grant: str, tab_id: str, steps: int
-    ) -> None:
+    async def scroll(self, session: str, nonce: str, grant: str, tab_id: str, steps: int) -> None:
         if type(steps) is not int or steps == 0 or abs(steps) > 3:
             raise BrowserDenied("Scroll must be between -3 and 3 steps")
         async with self._lock:

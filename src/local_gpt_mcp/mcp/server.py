@@ -169,7 +169,6 @@ def create_server(
             _safe_call(lambda: desktop.press_key(session_token, client_nonce, grant_token, handle, key))
             return {"executed": True}
 
-
     if browser is not None:
 
         @server.tool()
@@ -203,7 +202,9 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, selector: str
         ) -> dict[str, bool]:
             """Click one visible, nonsensitive element in the approved tab."""
-            await _safe_async(lambda: browser.click(session_token, client_nonce, grant_token, tab_id, selector))
+            await _safe_async(
+                lambda: browser.click(session_token, client_nonce, grant_token, tab_id, selector)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -226,9 +227,7 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, steps: int
         ) -> dict[str, bool]:
             """Scroll only within the approved browser tab."""
-            await _safe_async(
-                lambda: browser.scroll(session_token, client_nonce, grant_token, tab_id, steps)
-            )
+            await _safe_async(lambda: browser.scroll(session_token, client_nonce, grant_token, tab_id, steps))
             return {"executed": True}
 
         @server.tool()

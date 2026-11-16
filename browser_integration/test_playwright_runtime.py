@@ -99,9 +99,7 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
             )
             assert not approval.is_error and approval.structured_content is not None
             grant = str(approval.structured_content["grant_token"])
-            auth: dict[str, Any] = {
-                "session_token": session, "grant_token": grant, "tab_id": tab_id
-            }
+            auth: dict[str, Any] = {"session_token": session, "grant_token": grant, "tab_id": tab_id}
 
             navigated = await client.call_tool(
                 "browser_navigate", {**auth, "client_nonce": nonce(), "url": "https://example.com/"}
@@ -140,9 +138,7 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
             )
             assert no_form_submit.is_error
 
-            screenshot = await client.call_tool(
-                "browser_capture", {**auth, "client_nonce": nonce()}
-            )
+            screenshot = await client.call_tool("browser_capture", {**auth, "client_nonce": nonce()})
             assert not screenshot.is_error and screenshot.structured_content is not None
             assert base64.b64decode(screenshot.structured_content["base64"]).startswith(b"\x89PNG")
 
