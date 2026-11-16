@@ -250,6 +250,21 @@ def create_server(
 
     if browser is not None:
 
+        async def approve_browser(
+            session: str, nonce: str, grant: str, tab_id: str, step: Step
+        ) -> None:
+            origin = next(
+                (tab.origin for tab in browser.selected_tabs() if tab.tab_id == tab_id), None
+            )
+            if origin is None:
+                raise ToolError("Selected browser tab is unavailable")
+            _safe_call(
+                lambda: broker.authorize_grant(
+                    session, nonce, grant, origin, Capability.BROWSER_INPUT
+                )
+            )
+            await approve_direct_async(step)
+
         @server.tool()
         def browser_selected_tabs(session_token: str, client_nonce: str) -> dict[str, list[dict[str, str]]]:
             """List only the isolated tabs selected at local startup, after pairing."""
@@ -261,11 +276,15 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, url: str
         ) -> dict[str, str]:
             """Navigate within the exact approved HTTPS origin."""
-            await _safe_async(
-                lambda: approve_direct_async(Step("direct", Action.BROWSER_NAVIGATE, tab_id, text=url))
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_NAVIGATE, tab_id, text=url),
             )
             destination = await _safe_async(
-                lambda: browser.navigate(session_token, client_nonce, grant_token, tab_id, url)
+                lambda: browser.navigate(session_token, secrets.token_hex(16), grant_token, tab_id, url)
             )
             return {"url": destination}
 
@@ -277,20 +296,22 @@ def create_server(
             value = await _safe_async(
                 lambda: browser.read(session_token, client_nonce, grant_token, tab_id, selector)
             )
-            return {"text": value}
+            return {"text": value, "trust": "untrusted_page_content"}
 
         @server.tool()
         async def browser_click(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, selector: str
         ) -> dict[str, bool]:
             """Click one visible, nonsensitive element in the approved tab."""
-            await _safe_async(
-                lambda: approve_direct_async(
-                    Step("direct", Action.BROWSER_CLICK, tab_id, selector=selector)
-                )
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_CLICK, tab_id, selector=selector),
             )
             await _safe_async(
-                lambda: browser.click(session_token, client_nonce, grant_token, tab_id, selector)
+                lambda: browser.click(session_token, secrets.token_hex(16), grant_token, tab_id, selector)
             )
             return {"executed": True}
 
@@ -304,13 +325,15 @@ def create_server(
             text: str,
         ) -> dict[str, bool]:
             """Fill a non-sensitive visible input; password/payment fields are prohibited."""
-            await _safe_async(
-                lambda: approve_direct_async(
-                    Step("direct", Action.BROWSER_FILL, tab_id, selector=selector, text=text)
-                )
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_FILL, tab_id, selector=selector, text=text),
             )
             await _safe_async(
-                lambda: browser.fill(session_token, client_nonce, grant_token, tab_id, selector, text)
+                lambda: browser.fill(session_token, secrets.token_hex(16), grant_token, tab_id, selector, text)
             )
             return {"executed": True}
 
@@ -319,12 +342,14 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, tab_id: str, steps: int
         ) -> dict[str, bool]:
             """Scroll only within the approved browser tab."""
-            await _safe_async(
-                lambda: approve_direct_async(
-                    Step("direct", Action.BROWSER_SCROLL, tab_id, amount=steps)
-                )
+            await approve_browser(
+                session_token,
+                client_nonce,
+                grant_token,
+                tab_id,
+                Step("direct", Action.BROWSER_SCROLL, tab_id, amount=steps),
             )
-            await _safe_async(lambda: browser.scroll(session_token, client_nonce, grant_token, tab_id, steps))
+            await _safe_async(lambda: browser.scroll(session_token, secrets.token_hex(16), grant_token, tab_id, steps))
             return {"executed": True}
 
         @server.tool()
