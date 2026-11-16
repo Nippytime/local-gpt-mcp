@@ -74,9 +74,8 @@ def check_metadata(
         branch = WORK_BRANCH.fullmatch(head)
         if not branch or int(branch.group(1)) != issue_number:
             errors.append("Integration PR must originate from work/<issue>-<slug>")
-        if "type:feature" not in labels_for(issue, "Intended labels") and "type:security" not in labels_for(
-            issue, "Intended labels"
-        ) and "type:release" not in labels_for(issue, "Intended labels"):
+        declared_types = labels_for(issue, "Intended labels")
+        if not {"type:feature", "type:security", "type:release"} & declared_types:
             errors.append("Controlling Issue requires a type:* label/declaration")
     elif base == "main":
         if head != "dev":

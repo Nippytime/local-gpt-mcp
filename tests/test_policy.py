@@ -11,7 +11,9 @@ def test_project_contract() -> None:
 
 def test_unpinned_action_is_rejected(tmp_path: Path) -> None:
     file = tmp_path / "unsafe.yml"
-    file.write_text("permissions: {contents: read}\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v4\n")
+    file.write_text(
+        "permissions: {contents: read}\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v4\n"
+    )
     assert any("not pinned" in message for message in inspect_workflow(file))
 
 

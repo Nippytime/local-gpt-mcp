@@ -44,7 +44,10 @@ def validate(root: Path = ROOT) -> list[str]:
     for scope, checks in EXPECTED_CHECKS.items():
         if project.get("required_checks", {}).get(scope) != checks:
             failures.append(f"Required checks mismatch for {scope}")
-        if policy.get("github", {}).get("branch_protection", {}).get(scope, {}).get("required_checks") != checks:
+        if (
+            policy.get("github", {}).get("branch_protection", {}).get(scope, {}).get("required_checks")
+            != checks
+        ):
             failures.append(f"Branch policy checks mismatch for {scope}")
     for scope, checks in EXPECTED_CHECKS.items():
         paths = {
@@ -70,8 +73,10 @@ def validate(root: Path = ROOT) -> list[str]:
                 failures.append(f"Empty command group: {group}")
                 continue
             for command in entries:
-                if not isinstance(command, list) or not command or not all(
-                    isinstance(arg, str) and arg for arg in command
+                if (
+                    not isinstance(command, list)
+                    or not command
+                    or not all(isinstance(arg, str) and arg for arg in command)
                 ):
                     failures.append(f"Invalid executable command: {group}")
     if project.get("required_checks", {}).get("zero_is_success") is not False:

@@ -29,8 +29,10 @@ def read_commands(config: dict[str, Any], stage: str) -> list[list[str]]:
         if not isinstance(entries, list) or not entries:
             raise ValueError(f"Missing CI command group: {group}")
         for command in entries:
-            if not isinstance(command, list) or not command or not all(
-                isinstance(arg, str) and arg for arg in command
+            if (
+                not isinstance(command, list)
+                or not command
+                or not all(isinstance(arg, str) and arg for arg in command)
             ):
                 raise ValueError(f"Invalid CI command in {group}")
             commands.append([sys.executable if arg == "@python" else arg for arg in command])
