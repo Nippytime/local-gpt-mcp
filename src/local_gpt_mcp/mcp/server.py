@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import secrets
 import sys
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -128,6 +129,16 @@ def create_server(
 
     if desktop is not None:
 
+        def approve_desktop(
+            session: str, nonce: str, grant: str, handle: int, step: Step
+        ) -> None:
+            _safe_call(
+                lambda: broker.authorize_grant(
+                    session, nonce, grant, f"window:{handle}", Capability.WINDOW_INPUT
+                )
+            )
+            approve_direct(step)
+
         @server.tool()
         def desktop_window_info(
             session_token: str, client_nonce: str, grant_token: str, handle: int
@@ -174,10 +185,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, x: int, y: int
         ) -> dict[str, bool]:
             """Click one absolute pixel inside the approved, foreground window."""
-            _safe_call(
-                lambda: approve_direct(Step("direct", Action.DESKTOP_CLICK, f"window:{handle}", x=x, y=y))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_CLICK, f"window:{handle}", x=x, y=y),
             )
-            _safe_call(lambda: desktop.click(session_token, client_nonce, grant_token, handle, x, y))
+            _safe_call(
+                lambda: desktop.click(session_token, secrets.token_hex(16), grant_token, handle, x, y)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -185,10 +202,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, text: str
         ) -> dict[str, bool]:
             """Type at most 256 printable characters without modifiers or Enter."""
-            _safe_call(
-                lambda: approve_direct(Step("direct", Action.DESKTOP_TYPE, f"window:{handle}", text=text))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_TYPE, f"window:{handle}", text=text),
             )
-            _safe_call(lambda: desktop.type_text(session_token, client_nonce, grant_token, handle, text))
+            _safe_call(
+                lambda: desktop.type_text(session_token, secrets.token_hex(16), grant_token, handle, text)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -196,12 +219,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, steps: int
         ) -> dict[str, bool]:
             """Send at most three scroll steps to the approved window."""
-            _safe_call(
-                lambda: approve_direct(
-                    Step("direct", Action.DESKTOP_SCROLL, f"window:{handle}", amount=steps)
-                )
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_SCROLL, f"window:{handle}", amount=steps),
             )
-            _safe_call(lambda: desktop.scroll(session_token, client_nonce, grant_token, handle, steps))
+            _safe_call(
+                lambda: desktop.scroll(session_token, secrets.token_hex(16), grant_token, handle, steps)
+            )
             return {"executed": True}
 
         @server.tool()
@@ -209,10 +236,16 @@ def create_server(
             session_token: str, client_nonce: str, grant_token: str, handle: int, key: str
         ) -> dict[str, bool]:
             """Press a restricted navigation key; no Alt, Ctrl, Win or Enter."""
-            _safe_call(
-                lambda: approve_direct(Step("direct", Action.DESKTOP_KEY, f"window:{handle}", text=key))
+            approve_desktop(
+                session_token,
+                client_nonce,
+                grant_token,
+                handle,
+                Step("direct", Action.DESKTOP_KEY, f"window:{handle}", text=key),
             )
-            _safe_call(lambda: desktop.press_key(session_token, client_nonce, grant_token, handle, key))
+            _safe_call(
+                lambda: desktop.press_key(session_token, secrets.token_hex(16), grant_token, handle, key)
+            )
             return {"executed": True}
 
     if browser is not None:
