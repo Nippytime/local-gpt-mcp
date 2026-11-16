@@ -107,7 +107,7 @@ def test_session_expiration_clears_owned_grants() -> None:
     with pytest.raises(SessionDenied, match="unknown"):
         f.broker.status(token, f.nonce())
     assert any(event.reason == "session grant invalidated" for event in f.policy.events)
-    with pytest.raises(AccessDenied):
+    with pytest.raises(SessionDenied, match="unknown"):
         f.broker.authorize_grant(token, f.nonce(), grant, "window:11", Capability.WINDOW_READ)
 
 
