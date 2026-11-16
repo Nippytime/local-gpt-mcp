@@ -30,26 +30,50 @@ MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 MOUSEEVENTF_WHEEL = 0x0800
 BLOCKED_PROCESSES = frozenset(
-    {"cmd.exe", "powershell.exe", "pwsh.exe", "wt.exe", "windowsterminal.exe",
-     "conhost.exe", "regedit.exe", "taskmgr.exe", "mmc.exe", "mshta.exe"}
+    {
+        "cmd.exe",
+        "powershell.exe",
+        "pwsh.exe",
+        "wt.exe",
+        "windowsterminal.exe",
+        "conhost.exe",
+        "regedit.exe",
+        "taskmgr.exe",
+        "mmc.exe",
+        "mshta.exe",
+    }
 )
 KEY_CODES = {
-    "tab": 0x09, "escape": 0x1B, "backspace": 0x08, "left": 0x25,
-    "up": 0x26, "right": 0x27, "down": 0x28, "home": 0x24, "end": 0x23,
+    "tab": 0x09,
+    "escape": 0x1B,
+    "backspace": 0x08,
+    "left": 0x25,
+    "up": 0x26,
+    "right": 0x27,
+    "down": 0x28,
+    "home": 0x24,
+    "end": 0x23,
 }
 
 
 class _Mouse(ctypes.Structure):
     _fields_ = [
-        ("dx", wintypes.LONG), ("dy", wintypes.LONG), ("mouseData", wintypes.DWORD),
-        ("dwFlags", wintypes.DWORD), ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p),
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_void_p),
     ]
 
 
 class _Keyboard(ctypes.Structure):
     _fields_ = [
-        ("wVk", wintypes.WORD), ("wScan", wintypes.WORD),
-        ("dwFlags", wintypes.DWORD), ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p),
+        ("wVk", wintypes.WORD),
+        ("wScan", wintypes.WORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_void_p),
     ]
 
 
@@ -80,7 +104,10 @@ class WindowsBackend:
         self._user.OpenInputDesktop.restype = wintypes.HANDLE
         self._user.OpenInputDesktop.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
         self._user.GetUserObjectInformationW.argtypes = [
-            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+            wintypes.HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            wintypes.DWORD,
             ctypes.POINTER(wintypes.DWORD),
         ]
         self._user.CloseDesktop.argtypes = [wintypes.HANDLE]
@@ -90,14 +117,20 @@ class WindowsBackend:
         self._kernel.OpenProcess.restype = wintypes.HANDLE
         self._kernel.CloseHandle.argtypes = [wintypes.HANDLE]
         self._kernel.ProcessIdToSessionId.argtypes = [
-            wintypes.DWORD, ctypes.POINTER(wintypes.DWORD),
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
         ]
         self._advapi.OpenProcessToken.argtypes = [
-            wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE),
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.HANDLE),
         ]
         self._advapi.GetTokenInformation.argtypes = [
-            wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
-            wintypes.DWORD, ctypes.POINTER(wintypes.DWORD),
+            wintypes.HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
         ]
         self._trusted: frozenset[WindowIdentity] = frozenset()
 
@@ -136,8 +169,7 @@ class WindowsBackend:
                 enabled = wintypes.DWORD()
                 used = wintypes.DWORD()
                 if not self._advapi.GetTokenInformation(
-                    token, TOKEN_ELEVATION, ctypes.byref(enabled),
-                    ctypes.sizeof(enabled), ctypes.byref(used)
+                    token, TOKEN_ELEVATION, ctypes.byref(enabled), ctypes.sizeof(enabled), ctypes.byref(used)
                 ):
                     raise DesktopDenied("Cannot verify target elevation")
                 return bool(enabled.value)
@@ -194,9 +226,15 @@ class WindowsBackend:
     @staticmethod
     def _safe(info: WindowInfo) -> bool:
         return (
-            info.foreground and info.visible and info.enabled and not info.minimized
-            and info.same_user and info.same_session and not info.elevated
-            and info.rect.width > 0 and info.rect.height > 0
+            info.foreground
+            and info.visible
+            and info.enabled
+            and not info.minimized
+            and info.same_user
+            and info.same_session
+            and not info.elevated
+            and info.rect.width > 0
+            and info.rect.height > 0
         )
 
     def _guard(self, handle: int) -> WindowInfo:
