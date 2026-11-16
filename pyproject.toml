@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-gpt-mcp"
+version = "0.1.0"
+description = "Consent-first local MCP desktop companion"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+local-gpt-mcp = "local_gpt_mcp.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+exclude = [".venv", "artifacts", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "ci", "workflow", "tests"]
+strict = true
+ignore_missing_imports = true
+exclude = "(?x)^(.venv|artifacts|build|dist)/"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
