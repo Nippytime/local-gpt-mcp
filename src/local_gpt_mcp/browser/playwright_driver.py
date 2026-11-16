@@ -12,6 +12,7 @@ from playwright.async_api import (
     Locator,
     Page,
     Playwright,
+    Error as PlaywrightError,
     Route,
     WebSocketRoute,
     async_playwright,
@@ -107,10 +108,20 @@ class IsolatedBrowserSession:
             allowed = origin_of(route.request.url) == self._origin
         except BrowserDenied:
             allowed = False
-        if allowed:
-            await route.continue_()
-        else:
+        if not allowed:
             await route.abort("blockedbyclient")
+            return
+        # Route.continue_ follows redirect chains without re-interception.
+        # Fetch without following redirects; reject all 3xx responses before
+        # Chromium can contact any second URL.
+        try:
+            response = await route.fetch(max_redirects=0, timeout=10_000)
+            if 300 <= response.status < 400:
+                await route.abort("blockedbyclient")
+            else:
+                await route.fulfill(response=response)
+        except PlaywrightError:
+            await route.abort("failed")
 
     @staticmethod
     async def _websocket(ws: WebSocketRoute) -> None:

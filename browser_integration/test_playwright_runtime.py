@@ -167,23 +167,34 @@ async def test_network_route_denies_private_and_cross_origin_requests() -> None:
     runtime = IsolatedBrowserSession("https://example.com", controller, headless=True)
 
     class RouteFake:
-        def __init__(self, url: str) -> None:
+        def __init__(self, url: str, status: int = 200) -> None:
             self.request = SimpleNamespace(url=url)
             self.result = ""
+            self.status = status
+            self.redirects = -1
 
-        async def continue_(self) -> None:
+        async def fetch(self, *, max_redirects: int, timeout: int) -> SimpleNamespace:
+            self.redirects = max_redirects
+            assert timeout == 10_000
+            return SimpleNamespace(status=self.status)
+
+        async def fulfill(self, *, response: SimpleNamespace) -> None:
+            assert response.status == self.status
             self.result = "allowed"
 
         async def abort(self, reason: str) -> None:
             self.result = reason
 
-    for url, allowed in (
-        ("https://example.com/assets.js", True),
-        ("https://sub.example.com/", False),
-        ("http://example.com/", False),
-        ("http://127.0.0.1/private", False),
-        ("https://169.254.169.254/latest/meta-data", False),
+    for url, status, expected in (
+        ("https://example.com/assets.js", 200, "allowed"),
+        ("https://example.com/redirect", 302, "blockedbyclient"),
+        ("https://sub.example.com/", 200, "blockedbyclient"),
+        ("http://example.com/", 200, "blockedbyclient"),
+        ("http://127.0.0.1/private", 200, "blockedbyclient"),
+        ("https://169.254.169.254/latest/meta-data", 200, "blockedbyclient"),
     ):
-        mock = RouteFake(url)
+        mock = RouteFake(url, status)
         await runtime._network(mock)  # type: ignore[arg-type]
-        assert mock.result == ("allowed" if allowed else "blockedbyclient")
+        assert mock.result == expected
+        if expected == "allowed":
+            assert mock.redirects == 0

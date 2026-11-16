@@ -200,9 +200,9 @@ async def test_scroll_and_fill_limits() -> None:
     for value in (-4, 0, 4, True):
         with pytest.raises(BrowserDenied):
             await f.browser.scroll(f.session, f.nonce(), f.grant, f.tab.tab_id, value)
-    for value in ("", "a" * 257, "hello\nworld"):
+    for text in ("", "a" * 257, "hello\nworld"):
         with pytest.raises(BrowserDenied):
-            await f.browser.fill(f.session, f.nonce(), f.grant, f.tab.tab_id, "#name", value)
+            await f.browser.fill(f.session, f.nonce(), f.grant, f.tab.tab_id, "#name", text)
     assert all(action[0] not in {"fill", "scroll"} for action in f.page.effects)
 
 
