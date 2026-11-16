@@ -172,10 +172,12 @@ def create_server(
     if browser is not None:
 
         @server.tool()
-        def browser_selected_tabs(session_token: str, client_nonce: str) -> list[dict[str, str]]:
+        def browser_selected_tabs(session_token: str, client_nonce: str) -> dict[str, list[dict[str, str]]]:
             """List only the isolated tabs selected at local startup, after pairing."""
             _safe_call(lambda: broker.status(session_token, client_nonce))
-            return [{"tab_id": tab.tab_id, "origin": tab.origin} for tab in browser.selected_tabs()]
+            return {"tabs": [
+                {"tab_id": tab.tab_id, "origin": tab.origin} for tab in browser.selected_tabs()
+            ]}
 
         @server.tool()
         async def browser_navigate(

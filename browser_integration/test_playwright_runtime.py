@@ -83,8 +83,8 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
             )
             assert not tabs_result.is_error
             assert tabs_result.structured_content is not None
-            tabs = tabs_result.structured_content
-            assert len(tabs) == 1
+            tabs = tabs_result.structured_content["tabs"]
+            assert isinstance(tabs, list) and len(tabs) == 1
             tab_id = tabs[0]["tab_id"]
 
             approval = await client.call_tool(
