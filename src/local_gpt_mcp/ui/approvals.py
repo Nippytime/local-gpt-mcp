@@ -63,9 +63,7 @@ class ApprovalInbox:
         with self._lock:
             if not self._running or pending not in self._waiting or pending.done.is_set():
                 return False
-            pending.approved = secrets.compare_digest(
-                entered.strip(), f"APPROVE {pending.challenge}"
-            )
+            pending.approved = secrets.compare_digest(entered.strip(), f"APPROVE {pending.challenge}")
             pending.done.set()
             return pending.approved
 

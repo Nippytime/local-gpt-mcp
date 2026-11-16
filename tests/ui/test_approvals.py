@@ -108,9 +108,7 @@ def test_policy_local_status_redacts_secrets_and_observes_revoke() -> None:
     authority = PolicyAuthority(AlwaysYes())
     authority.pair(PairingRequest("local", "pc"))
     caller = Caller("local", "pc", "session1")
-    token = authority.issue(
-        GrantRequest(caller, "window:41", frozenset({Capability.WINDOW_READ}), 60)
-    )
+    token = authority.issue(GrantRequest(caller, "window:41", frozenset({Capability.WINDOW_READ}), 60))
     snapshot = authority.local_status()
     assert snapshot.paired_devices == 1
     assert snapshot.active_scopes == ("window:41 | window.read",)

@@ -54,8 +54,7 @@ class LocalSafetyPanel:
         scopes = ", ".join(sorted(scope.value for scope in request.capabilities))
         return self._inbox.request(
             "Approve a time-limited grant",
-            f"Selected target: {request.target}\nScope: {scopes}\n"
-            f"Expires in: {request.ttl_seconds} seconds.",
+            f"Selected target: {request.target}\nScope: {scopes}\nExpires in: {request.ttl_seconds} seconds.",
         )
 
     def approve(self, step: Step) -> bool:
@@ -86,9 +85,9 @@ class LocalSafetyPanel:
             status.pack(anchor="w", pady=(0, 12))
             scope_text = tk.StringVar(value="None")
             tk.Label(root, text="Currently authorized targets and scopes:", anchor="w").pack(anchor="w")
-            tk.Label(
-                root, textvariable=scope_text, justify="left", wraplength=490, anchor="w"
-            ).pack(anchor="w", pady=(0, 12))
+            tk.Label(root, textvariable=scope_text, justify="left", wraplength=490, anchor="w").pack(
+                anchor="w", pady=(0, 12)
+            )
             stop_button = tk.Button(
                 root,
                 text="EMERGENCY STOP — REVOKE ALL ACCESS",
@@ -105,9 +104,9 @@ class LocalSafetyPanel:
             details = tk.StringVar(value="")
             challenge = tk.StringVar(value="")
             tk.Label(prompt_frame, textvariable=heading, font=("Segoe UI", 11, "bold")).pack(anchor="w")
-            tk.Label(
-                prompt_frame, textvariable=details, wraplength=450, justify="left"
-            ).pack(anchor="w", pady=4)
+            tk.Label(prompt_frame, textvariable=details, wraplength=450, justify="left").pack(
+                anchor="w", pady=4
+            )
             tk.Label(prompt_frame, textvariable=challenge, font=("Consolas", 10)).pack(anchor="w")
             entry = tk.Entry(prompt_frame)
             entry.pack(fill="x", pady=(5, 8))

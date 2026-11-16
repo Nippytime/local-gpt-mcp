@@ -62,6 +62,7 @@ class AuditEvent:
     result: str
     reason: str
 
+
 @dataclass(frozen=True, slots=True)
 class LocalStatus:
     """For the trusted local display only; never exported as an MCP tool."""
