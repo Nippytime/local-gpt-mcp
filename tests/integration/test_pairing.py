@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from local_gpt_mcp.pairing import SessionBroker, SessionDenied
@@ -81,6 +79,7 @@ def test_pairing_nonce_replay_and_invalid_input() -> None:
     f.broker.open("user1", "device1", nonce)
     with pytest.raises(SessionDenied, match="repeated"):
         f.broker.open("user1", "device1", nonce)
+    f.broker.open("user1", "device1", f.nonce())
     with pytest.raises(SessionDenied, match="limited"):
         f.broker.open("user1", "device1", f.nonce())
     # After a minute the attempt budget is replenished.
@@ -109,7 +108,7 @@ def test_session_expiration_clears_owned_grants() -> None:
         f.broker.status(token, f.nonce())
     assert any(event.reason == "session grant invalidated" for event in f.policy.events)
     with pytest.raises(AccessDenied):
-        f.policy.authorize(grant, f.broker.open("user1", "device1", f.nonce()), "window:11", Capability.WINDOW_READ)  # type: ignore[arg-type]
+        f.broker.authorize_grant(token, f.nonce(), grant, "window:11", Capability.WINDOW_READ)
 
 
 def test_grant_requires_local_approval() -> None:
@@ -212,7 +211,9 @@ def test_denied_session_has_no_secrets_in_audit() -> None:
     token = f.open()
     grant = f.grant(token)
     with pytest.raises(SessionDenied):
-        f.broker.authorize_grant(token, f.nonce(), grant + "invalid", "window:11", Capability.WINDOW_READ)
+        f.broker.authorize_grant(
+            token, f.nonce(), grant + "invalid", "window:11", Capability.WINDOW_READ
+        )
     assert token not in repr(f.policy.events)
     assert grant not in repr(f.policy.events)
 
