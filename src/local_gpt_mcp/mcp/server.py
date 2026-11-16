@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import sys
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,6 +23,8 @@ from local_gpt_mcp.orchestrator.store import FileCheckpointStore, MemoryCheckpoi
 from local_gpt_mcp.pairing.local_approval import ConsoleApproval
 from local_gpt_mcp.pairing.sessions import SessionBroker, SessionDenied
 from local_gpt_mcp.policy import AccessDenied, Capability, PolicyAuthority
+from local_gpt_mcp.policy.authority import LocalApproval
+from local_gpt_mcp.ui.panel import LocalSafetyPanel
 
 
 def _safe_call[T](operation: Callable[[], T]) -> T:
@@ -288,7 +291,14 @@ def serve_stdio(
     workflow_state_dir: Path | None = None,
 ) -> None:
     """Local-only stdio; UI/browser scopes and persistence selected locally."""
-    authority = PolicyAuthority(ConsoleApproval())
+    # The Windows safety panel is mandatory whenever an adapter is enabled:
+    # a missing/headless window fails closed, with no silent console fallback.
+    panel = LocalSafetyPanel() if sys.platform == "win32" and (allow_windows or browser_origin) else None
+    approval: LocalApproval = panel if panel is not None else ConsoleApproval()
+    authority = PolicyAuthority(approval)
+    if panel is not None:
+        panel.bind_authority(authority)
+        panel.start()
     broker = SessionBroker(authority)
     desktop = None
     if allow_windows:
@@ -319,6 +329,10 @@ def serve_stdio(
             broker,
             ScopedDriver(browser=browser, desktop=desktop),
             store,
-            ConsoleActionApproval(),
+            panel if panel is not None else ConsoleActionApproval(),
         )
-    create_server(broker, desktop, browser, lifespan, workflows).run(transport="stdio")
+    try:
+        create_server(broker, desktop, browser, lifespan, workflows).run(transport="stdio")
+    finally:
+        if panel is not None:
+            panel.stop()

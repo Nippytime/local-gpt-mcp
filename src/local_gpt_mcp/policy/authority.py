@@ -63,6 +63,16 @@ class AuditEvent:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class LocalStatus:
+    """For the trusted local display only; never exported as an MCP tool."""
+
+    stopped: bool
+    paired_devices: int
+    active_scopes: tuple[str, ...]
+    audit: tuple[AuditEvent, ...]
+
+
 class LocalApproval(Protocol):
     """Implemented ONLY by a trusted local interactive UI, never an MCP tool."""
 
@@ -138,6 +148,19 @@ class PolicyAuthority:
     @property
     def stopped(self) -> bool:
         return self._stopped.is_set()
+
+    def local_status(self) -> LocalStatus:
+        """Local-only redacted health snapshot; never return grant bearers."""
+        with self._lock:
+            now = self._clock()
+            scopes = tuple(
+                sorted(
+                    f"{grant.target[:100]} | {', '.join(sorted(scope.value for scope in grant.capabilities))}"
+                    for grant in self._grants.values()
+                    if now < grant.expires_at and not self._stopped.is_set()
+                )
+            )
+            return LocalStatus(self._stopped.is_set(), len(self._pairings), scopes, tuple(self._events))
 
     def _record(self, operation: str, result: str, reason: str) -> None:
         self._events.append(AuditEvent(operation, result, reason))
