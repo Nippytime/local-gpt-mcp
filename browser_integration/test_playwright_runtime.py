@@ -165,7 +165,10 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
 
 
 @pytest.mark.anyio
-async def test_network_route_denies_private_and_cross_origin_requests() -> None:
+async def test_network_route_denies_private_and_cross_origin_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver._public_dns", lambda host: True)
     broker = SessionBroker(PolicyAuthority(Approval()))
     controller = BrowserController(broker)
     runtime = IsolatedBrowserSession("https://example.com", controller, headless=True)
