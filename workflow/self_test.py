@@ -15,6 +15,7 @@ EXPECTED_CHECKS = {
         "PR test/build gates",
         "Dependency audit",
         "Workflow policy",
+        "Windows adapter contract",
     ],
     "production": ["Release metadata", "Full regression and production build", "Workflow policy"],
 }
