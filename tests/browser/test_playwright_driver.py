@@ -221,9 +221,7 @@ async def test_isolated_context_lifecycle_disables_downloads_and_service_workers
     context = FakeContext()
     browser = FakeBrowser(context)
     fake = FakePlaywright(browser)
-    monkeypatch.setattr(
-        "local_gpt_mcp.browser.playwright_driver.async_playwright", lambda: FakeStarter(fake)
-    )
+    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver.async_playwright", lambda: FakeStarter(fake))
     controller = BrowserController(SessionBroker(PolicyAuthority()))
     runtime = IsolatedBrowserSession("https://example.com", controller, headless=True)
     async with runtime:
