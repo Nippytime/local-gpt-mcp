@@ -78,6 +78,16 @@ class OwnerEnrollmentAPI:
         self._lock = threading.RLock()
         self._pending: dict[str, _Pending] = {}
 
+    def require_browser_client(self, client_id: str) -> None:
+        """Only the exact independently configured OAuth browser client may use this UI."""
+        if self._client_id != client_id:
+            raise ValueError("Owner enrollment browser client ID must match its verified API")
+
+    @property
+    def verifier(self) -> TokenVerifier:
+        """Read-only binding used to prevent mismatch with the gateway verifier."""
+        return self._verifier
+
     def require_gateway_binding(self, config: GatewayConfig, verifier: TokenVerifier) -> None:
         """Prevent accidental installation with weaker identity settings."""
         if self._resource != config.resource_url or self._verifier is not verifier:
