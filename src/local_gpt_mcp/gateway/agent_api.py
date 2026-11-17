@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from local_gpt_mcp.agent.identity import MAX_BODY, DeviceAuthenticationError
+from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
 from local_gpt_mcp.policy.stop_ledger import StopDenied
@@ -29,9 +30,9 @@ async def _owner(
     request: Request,
     verify: TokenVerifier,
     resource: str,
-    client_id: str | None,
     *,
     scope: str = OWNER_SCOPE,
+    client_id: str | None = None,
 ) -> str:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
@@ -40,11 +41,11 @@ async def _owner(
     auth: AccessToken | None = await verify.verify_token(token)
     if (
         auth is None
-        or client_id is None
-        or auth.client_id != client_id
         or scope not in auth.scopes
         or not auth.subject
         or auth.resource != resource
+        or client_id is None
+        or auth.client_id != client_id
     ):
         raise DeviceAuthenticationError("Owner access denied")
     return auth.subject
@@ -80,6 +81,7 @@ def install_agent_routes(
     verifier: TokenVerifier,
     resource: str,
     *,
+    actions: RemoteActionRelay | None = None,
     owner_client_id: str | None = None,
 ) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
@@ -98,16 +100,19 @@ def install_agent_routes(
                     "origin"
                 ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
-                return await handler(request)
+                response = await handler(request)
             except (DeviceAuthenticationError, DeviceUnavailable, StopDenied, ValueError, TypeError):
                 # Do not disclose ownership, enrollment details or signature results.
-                return JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
+                response = JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
 
         return call
 
     @safe
     async def owner_enrollment(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource, owner_client_id)
+        owner = await _owner(request, verifier, resource, client_id=owner_client_id)
         data = await _json(request)
         label = data.get("label")
         if not isinstance(label, str):
@@ -117,18 +122,22 @@ def install_agent_routes(
 
     @safe
     async def owner_revoke(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource, owner_client_id)
+        owner = await _owner(request, verifier, resource, client_id=owner_client_id)
         data = await _json(request)
         device_id = data.get("device_id")
         if not isinstance(device_id, str):
             raise DeviceAuthenticationError("Device required")
         relay.revoke(owner, device_id)
+        if actions is not None:
+            actions.revoke_device(owner, device_id)
         return JSONResponse({"revoked": True})
 
     @safe
     async def owner_halt(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource, owner_client_id)
+        owner = await _owner(request, verifier, resource, client_id=owner_client_id)
         relay.halt_owner(owner)
+        if actions is not None:
+            actions.halt_owner(owner)
         return JSONResponse({"halted": True})
 
     @safe
@@ -168,6 +177,26 @@ def install_agent_routes(
         relay.reply(owner, device_id, job_id, output)
         return JSONResponse({"accepted": True})
 
+    @safe
+    async def action_poll(request: Request) -> JSONResponse:
+        if actions is None:
+            raise DeviceUnavailable("Remote actions not configured")
+        owner, device_id, data = await authenticated_agent(request)
+        if data:
+            raise DeviceAuthenticationError("Poll payload must be empty")
+        return JSONResponse(actions.poll_trusted(owner, device_id))
+
+    @safe
+    async def action_result(request: Request) -> JSONResponse:
+        if actions is None:
+            raise DeviceUnavailable("Remote actions not configured")
+        owner, device_id, data = await authenticated_agent(request)
+        job_id, result = data.get("job_id"), data.get("result")
+        if not isinstance(job_id, str) or not isinstance(result, dict):
+            raise DeviceAuthenticationError("Invalid bounded action result")
+        actions.reply_trusted(owner, device_id, job_id, result)
+        return JSONResponse({"accepted": True})
+
     # Before generic MCP transport routes: never allow a catch-all mount
     # to shadow authenticated enrollment or signed agent endpoints.
     app.router.routes[:0] = [
@@ -178,3 +207,8 @@ def install_agent_routes(
         Route("/api/agent/poll", agent_poll, methods=["POST"]),
         Route("/api/agent/result", agent_result, methods=["POST"]),
     ]
+    if actions is not None:
+        app.router.routes[:0] = [
+            Route("/api/agent/actions/poll", action_poll, methods=["POST"]),
+            Route("/api/agent/actions/result", action_result, methods=["POST"]),
+        ]
