@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from mcp.server import MCPServer
 from mcp.server.auth.middleware.auth_context import get_access_token
+from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
@@ -32,7 +33,7 @@ def create_gateway_server(
     config: GatewayConfig,
     *,
     directory: DeviceDirectory | None = None,
-    verifier: JWTVerifier | None = None,
+    verifier: TokenVerifier | None = None,
 ) -> MCPServer:
     """Register tools while keeping every principal derived from verified OAuth."""
     store = directory if directory is not None else DeviceDirectory()
@@ -73,7 +74,7 @@ def create_gateway(
     config: GatewayConfig,
     *,
     directory: DeviceDirectory | None = None,
-    verifier: JWTVerifier | None = None,
+    verifier: TokenVerifier | None = None,
 ) -> Starlette:
     """Expose the authenticated MCP server as an HTTP-only ASGI application."""
     mcp = create_gateway_server(config, directory=directory, verifier=verifier)
