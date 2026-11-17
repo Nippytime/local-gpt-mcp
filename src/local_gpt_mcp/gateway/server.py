@@ -82,11 +82,16 @@ def create_gateway(
     directory: DeviceDirectory | None = None,
     verifier: TokenVerifier | None = None,
     relay: AgentRelay | None = None,
+    owner_client_id: str | None = None,
     owner_enrollment: OwnerEnrollmentAPI | None = None,
     enrollment_page: OwnerEnrollmentPageConfig | None = None,
 ) -> Starlette:
     """Expose the authenticated MCP server plus optional outbound-only agent APIs."""
     token_verifier = verifier if verifier is not None else JWTVerifier(config)
+    if owner_client_id is not None and (
+        not isinstance(owner_client_id, str) or not 1 <= len(owner_client_id) <= 256
+    ):
+        raise ValueError("Explicit independent owner-browser OAuth client ID is required")
     if relay is not None:
         if directory is None:
             directory = DeviceDirectory(relay)
@@ -104,7 +109,7 @@ def create_gateway(
         ),
     )
     if relay is not None:
-        install_agent_routes(app, relay, token_verifier, config.resource_url)
+        install_agent_routes(app, relay, token_verifier, config.resource_url, owner_client_id=owner_client_id)
     if enrollment_page is not None and owner_enrollment is None:
         raise ValueError("Owner browser UI requires independently authorized enrollment API")
     if owner_enrollment is not None:
@@ -124,4 +129,8 @@ def create_from_env() -> Starlette:
         raise RuntimeError("Hosted gateway requires an HTTPS resource, issuer and JWKS URL")
     stop_path = os.environ.get("LOCAL_MCP_STOP_DB")
     stops = SQLiteStopLedger(Path(stop_path)) if stop_path is not None else None
-    return create_gateway(GatewayConfig(*(os.environ[key] for key in keys)), relay=AgentRelay(stops=stops))
+    return create_gateway(
+        GatewayConfig(*(os.environ[key] for key in keys)),
+        relay=AgentRelay(stops=stops),
+        owner_client_id=os.environ.get("LOCAL_MCP_OWNER_CLIENT_ID"),
+    )

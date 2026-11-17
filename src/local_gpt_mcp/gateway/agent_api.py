@@ -25,13 +25,20 @@ from local_gpt_mcp.policy.stop_ledger import StopDenied
 OWNER_SCOPE = "devices:manage"
 
 
-async def _owner(request: Request, verify: TokenVerifier, resource: str) -> str:
+async def _owner(request: Request, verify: TokenVerifier, resource: str, client_id: str | None) -> str:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token or len(token) > 8192:
         raise DeviceAuthenticationError("Owner authentication required")
     auth: AccessToken | None = await verify.verify_token(token)
-    if auth is None or OWNER_SCOPE not in auth.scopes or not auth.subject or auth.resource != resource:
+    if (
+        auth is None
+        or client_id is None
+        or auth.client_id != client_id
+        or OWNER_SCOPE not in auth.scopes
+        or not auth.subject
+        or auth.resource != resource
+    ):
         raise DeviceAuthenticationError("Owner access denied")
     return auth.subject
 
@@ -60,7 +67,14 @@ async def _json(request: Request, body: bytes | None = None) -> dict[str, Any]:
     return data
 
 
-def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerifier, resource: str) -> None:
+def install_agent_routes(
+    app: Starlette,
+    relay: AgentRelay,
+    verifier: TokenVerifier,
+    resource: str,
+    *,
+    owner_client_id: str | None = None,
+) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
     public = urlsplit(resource)
     host = public.netloc.casefold()
@@ -86,7 +100,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
 
     @safe
     async def owner_enrollment(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource)
+        owner = await _owner(request, verifier, resource, owner_client_id)
         data = await _json(request)
         label = data.get("label")
         if not isinstance(label, str):
@@ -96,7 +110,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
 
     @safe
     async def owner_revoke(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource)
+        owner = await _owner(request, verifier, resource, owner_client_id)
         data = await _json(request)
         device_id = data.get("device_id")
         if not isinstance(device_id, str):
@@ -106,7 +120,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
 
     @safe
     async def owner_halt(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource)
+        owner = await _owner(request, verifier, resource, owner_client_id)
         relay.halt_owner(owner)
         return JSONResponse({"halted": True})
 

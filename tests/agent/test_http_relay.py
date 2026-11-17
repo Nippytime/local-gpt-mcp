@@ -28,13 +28,13 @@ CONFIG = GatewayConfig(
 
 class StubVerifier:
     async def verify_token(self, token: str) -> AccessToken | None:
-        if token not in {"alice", "bob"}:
+        if token not in {"alice", "bob", "model-elevated"}:
             return None
         return AccessToken(
             token=token,
-            client_id="owner-browser",
+            client_id="model-mcp" if token == "model-elevated" else "owner-browser",
             scopes=["devices:read", "devices:manage"],
-            subject=token,
+            subject="alice" if token == "model-elevated" else token,
             resource=CONFIG.resource_url,
         )
 
@@ -57,7 +57,9 @@ def anyio_backend() -> str:
 async def test_owner_pairing_signed_poll_and_scoped_result() -> None:
     relay = AgentRelay()
     directory = DeviceDirectory(relay)
-    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    app = create_gateway(
+        CONFIG, directory=directory, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser"
+    )
     approved = ApprovedRead()
     async with (
         app.router.lifespan_context(app),
@@ -125,7 +127,9 @@ async def test_owner_pairing_signed_poll_and_scoped_result() -> None:
 async def test_signed_nonce_replay_and_payload_tampering_are_denied() -> None:
     relay = AgentRelay()
     directory = DeviceDirectory(relay)
-    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    app = create_gateway(
+        CONFIG, directory=directory, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser"
+    )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:
@@ -153,7 +157,9 @@ async def test_signed_nonce_replay_and_payload_tampering_are_denied() -> None:
 async def test_default_agent_never_releases_unapproved_pc_data() -> None:
     relay = AgentRelay()
     directory = DeviceDirectory(relay)
-    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    app = create_gateway(
+        CONFIG, directory=directory, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser"
+    )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:
@@ -181,7 +187,9 @@ async def test_default_agent_never_releases_unapproved_pc_data() -> None:
 async def test_owner_and_agent_routes_reject_foreign_host_and_browser_origin() -> None:
     relay = AgentRelay()
     directory = DeviceDirectory(relay)
-    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    app = create_gateway(
+        CONFIG, directory=directory, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser"
+    )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:
@@ -212,7 +220,9 @@ async def test_owner_and_agent_routes_reject_foreign_host_and_browser_origin() -
 async def test_streaming_body_bounds_and_missing_content_length() -> None:
     relay = AgentRelay()
     directory = DeviceDirectory(relay)
-    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    app = create_gateway(
+        CONFIG, directory=directory, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser"
+    )
 
     async def valid_stream() -> AsyncIterator[bytes]:
         yield b'{"label":"Streaming PC"}'
@@ -254,7 +264,9 @@ async def test_owner_halt_is_oauth_scoped_and_persistently_denies_agent(
         return
     relay = AgentRelay(stops=SQLiteStopLedger.provision(path))
     directory = DeviceDirectory(relay)
-    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    app = create_gateway(
+        CONFIG, directory=directory, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser"
+    )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:
@@ -301,3 +313,47 @@ async def test_owner_halt_is_oauth_scoped_and_persistently_denies_agent(
         ).status_code == 403
         with pytest.raises(StopDenied):
             SQLiteStopLedger(path).require_allowed("alice", agent.identity.device_id)
+
+
+@pytest.mark.anyio
+async def test_management_requires_independent_owner_client_even_with_elevated_scope() -> None:
+    # A model client granted the management scope by mistake must still fail.
+    relay = AgentRelay()
+    app = create_gateway(CONFIG, relay=relay, verifier=StubVerifier(), owner_client_id="owner-browser")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
+    ) as client:
+        headers = {"Authorization": "Bearer model-elevated"}
+        for route, payload in (
+            ("/api/owner/enrollments", {"label": "Forged"}),
+            ("/api/owner/revoke", {"device_id": "pc-target"}),
+            ("/api/owner/halt", {}),
+        ):
+            assert (await client.post(route, headers=headers, json=payload)).status_code == 403
+        assert (
+            await client.post(
+                "/api/owner/enrollments",
+                headers={"Authorization": "Bearer alice"},
+                json={"label": "Owner-only"},
+            )
+        ).status_code == 200
+
+
+@pytest.mark.anyio
+async def test_unpinned_owner_management_denied_while_signed_agent_routes_remain() -> None:
+    relay = AgentRelay()
+    app = create_gateway(CONFIG, relay=relay, verifier=StubVerifier())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
+    ) as client:
+        for route, payload in (
+            ("/api/owner/enrollments", {"label": "No pin"}),
+            ("/api/owner/revoke", {"device_id": "pc-target"}),
+            ("/api/owner/halt", {}),
+        ):
+            assert (
+                await client.post(route, headers={"Authorization": "Bearer alice"}, json=payload)
+            ).status_code == 403
+        assert (await client.post("/api/agent/enroll", json={})).status_code == 403
+    with pytest.raises(ValueError, match="owner-browser"):
+        create_gateway(CONFIG, relay=AgentRelay(), owner_client_id="")
