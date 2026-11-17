@@ -1,6 +1,21 @@
 # Local GPT MCP
 
-A consent-first Windows desktop companion for ChatGPT-compatible MCP integrations. This repository is currently a **toolchain scaffold**. It cannot yet remotely control a computer or browser.
+A consent-first Windows companion that will let users **control their own PC from ChatGPT on the web, wherever they are**.
+
+**Status:** The existing local Windows/browser MCP execution engine is implemented in `dev`, but **web-to-PC remote access is not implemented**. The current local stdio transport needs an authenticated HTTPS gateway, an outbound-only device agent, and remote owner approval before the user can work on a PC while away. The release is blocked until real remote end-to-end and physical Windows tests pass.
+
+See [web-first product architecture](docs/WEB_REMOTE.md) and [Issue #20](https://github.com/Nippytime/local-gpt-mcp/issues/20).
+
+## Target user experience
+
+1. Install and pair the Windows agent to your own verified account.
+2. Leave the PC powered on, online, and in a controllable user session.
+3. Open ChatGPT **web** from another location and authorize the companion plugin.
+4. Select your own paired PC and request a bounded read or action.
+5. Approve consequential actions on a **trusted remote browser/phone**, independently of the model. Denial or emergency stop works remotely.
+6. Receive results in ChatGPT. An offline, locked, UAC, or secure-desktop PC must safely refuse interactive actions.
+
+ChatGPT web currently supports full custom-MCP actions for eligible Business/Enterprise/Edu workspaces; plan and workspace permissions still apply. No existing account is automatically entitled to remote-write tools. A private Secure MCP Tunnel can pilot the connection, but public distribution needs a stable HTTPS MCP server with OAuth.
 
 ## Develop and verify
 

@@ -50,7 +50,7 @@ def test_challenge_must_match_local_ui_response_exactly() -> None:
         time.sleep(0.001)
     assert pending is not None
     assert pending.heading == "Pair"
-    assert not inbox.respond(pending, "APPROVE " + pending.challenge.lower())
+    assert not inbox.respond(pending, f"APPROVE {pending.challenge}X")
     task.join(2)
     assert values == [False]
     assert not inbox.respond(pending, "APPROVE " + pending.challenge)
