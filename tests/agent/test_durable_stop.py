@@ -95,3 +95,50 @@ async def test_owner_halt_cancels_queued_read_and_blocks_reenrollment(tmp_path: 
 def test_halt_not_reported_success_without_durable_storage() -> None:
     with pytest.raises(StopDenied):
         AgentRelay().halt_owner("alice")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("decision", ["halt", "revoke", "missing"])
+async def test_remote_worker_stop_interrupts_outstanding_read(tmp_path: Path, decision: str) -> None:
+    """An in-flight read fails before its normal timeout when a second worker denies it."""
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            ledger(tmp_path)
+        return
+    guard = ledger(tmp_path)
+    relay, identity = enrolled(guard)
+    pending = asyncio.create_task(
+        relay.read("alice", identity.device_id, ReadRequest("desktop_window_info", "window:41"))
+    )
+    await asyncio.sleep(0)
+    assert len(relay._jobs) == 1
+    path = tmp_path / "private" / "stop.sqlite"
+    if decision == "halt":
+        SQLiteStopLedger(path).halt_owner("alice")
+    elif decision == "revoke":
+        SQLiteStopLedger(path).revoke_device("alice", identity.device_id)
+    else:
+        path.unlink()  # destroyed/inaccessible security state must also deny
+    with pytest.raises(DeviceUnavailable, match="cancelled"):
+        await asyncio.wait_for(pending, timeout=2)
+    assert not relay._jobs
+    assert not relay.connected("alice", identity.device_id)
+
+
+@pytest.mark.anyio
+async def test_live_read_still_returns_before_stop_poll_interval(tmp_path: Path) -> None:
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            ledger(tmp_path)
+        return
+    relay, identity = enrolled(ledger(tmp_path))
+    pending = asyncio.create_task(
+        relay.read("alice", identity.device_id, ReadRequest("desktop_window_info", "window:41"))
+    )
+    await asyncio.sleep(0)
+    job = relay.poll("alice", identity.device_id)
+    job_id = job["job_id"]
+    assert isinstance(job_id, str)
+    relay.reply("alice", identity.device_id, job_id, {"title": "Approved"})
+    assert await asyncio.wait_for(pending, timeout=1) == {"title": "Approved"}
+    assert not relay._jobs

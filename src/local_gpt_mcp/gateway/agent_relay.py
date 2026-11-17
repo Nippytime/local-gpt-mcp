@@ -171,6 +171,13 @@ class AgentRelay:
                         job.future.set_exception(DeviceUnavailable("Owner stopped remote reads"))
                     del self._jobs[job_id]
 
+    def _require_still_allowed(self, owner: str, device_id: str) -> None:
+        """Recheck durable STOP during a pending read, not just at submission."""
+        try:
+            self._allow(owner, device_id)
+        except StopDenied as error:
+            raise DeviceUnavailable("Device read cancelled by STOP or revocation") from error
+
     async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]:
         loop = asyncio.get_running_loop()
         job_id = secrets.token_hex(16)
@@ -186,13 +193,20 @@ class AgentRelay:
                 raise DeviceUnavailable("Device not actively connected")
             future: asyncio.Future[Mapping[str, str | int | bool]] = loop.create_future()
             self._jobs[job_id] = _Job(owner, device_id, request, future, self._clock() + READ_SECONDS)
+        deadline = time.monotonic() + READ_SECONDS
         try:
-            result = await asyncio.wait_for(future, timeout=READ_SECONDS)
-            if "error" in result:
-                raise DeviceUnavailable("The local PC denied the observation")
-            return result
-        except TimeoutError:
-            raise DeviceUnavailable("Device read expired") from None
+            while True:
+                if future.done():
+                    result = future.result()
+                    self._require_still_allowed(owner, device_id)
+                    if "error" in result:
+                        raise DeviceUnavailable("The local PC denied the observation")
+                    return result
+                self._require_still_allowed(owner, device_id)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise DeviceUnavailable("Device read expired")
+                await asyncio.wait((future,), timeout=min(0.25, remaining))
         finally:
             with self._lock:
                 self._jobs.pop(job_id, None)
