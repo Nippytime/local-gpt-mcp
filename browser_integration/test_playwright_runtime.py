@@ -299,7 +299,6 @@ async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
         await listener.wait_closed()
 
 
-
 @pytest.mark.anyio
 async def test_real_chromium_disables_webrtc_peers_in_top_level_and_iframe() -> None:
     """Untrusted page JavaScript cannot open an ICE/data-channel network path."""
