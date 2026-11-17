@@ -28,7 +28,6 @@ REPLAY_NAME = "remote-consumed.sqlite"
 
 
 def load_local_issuer() -> Ed25519PublicKey:
-    """Load only the manually pinned key in the Windows user's private profile."""
     folder = credential_file().parent
     path = folder / USER_KEY_NAME
     if (

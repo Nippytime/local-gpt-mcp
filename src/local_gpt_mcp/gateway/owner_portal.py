@@ -37,7 +37,6 @@ def _auth_endpoint(url: str, config: GatewayConfig) -> str:
 
 @dataclass(frozen=True, slots=True)
 class OwnerPortalConfig:
-    """Operator-provisioned public SPA OAuth client; never the MCP model client."""
 
     client_id: str
     authorization_endpoint: str

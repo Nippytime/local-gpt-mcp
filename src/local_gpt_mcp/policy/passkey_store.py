@@ -56,7 +56,6 @@ def _counter(previous: int, incoming: int) -> None:
 
 
 class MemoryPasskeys:
-    """Non-durable fake for explicit deterministic tests and isolated development."""
 
     def __init__(self) -> None:
         self._entries: dict[str, PasskeyCredential] = {}
@@ -87,7 +86,6 @@ class MemoryPasskeys:
 
 
 class SQLitePasskeys:
-    """Transactional single-host public key and anti-replay counter store."""
 
     def __init__(self, path: Path) -> None:
         if (
@@ -165,7 +163,6 @@ class SQLitePasskeys:
             )
 
     def revoke_trusted(self, owner: str, credential_id: str) -> None:
-        """Only trusted operator enrollment/revocation code may invoke this."""
         with closing(self._connect()) as db, db:
             deleted = db.execute(
                 "DELETE FROM passkeys WHERE credential_id = ? AND owner = ?",

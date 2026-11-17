@@ -34,7 +34,6 @@ class _ActionJob:
 
 
 class RemoteActionRelay:
-
     def __init__(
         self,
         approvals: OwnerApprovalQueue,
@@ -111,7 +110,6 @@ class RemoteActionRelay:
                 pass
 
     def poll_trusted(self, owner: str, device_id: str) -> dict[str, object]:
-        """Call only after validating the device signature on the poll endpoint."""
         with self._lock:
             if owner in self._halted or not self._connected(owner, device_id):
                 raise DeviceUnavailable("Device offline or remote actions stopped")
@@ -170,7 +168,6 @@ class RemoteActionRelay:
             job.result.set_result(dict(result))
 
     def revoke_device(self, owner: str, device_id: str) -> None:
-        """Cancel without replaying any previously delivered ambiguous effect."""
         with self._lock:
             for job in self._jobs.values():
                 if (
