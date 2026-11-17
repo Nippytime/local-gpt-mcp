@@ -46,6 +46,7 @@ class FakeNative:
 def fixture(tmp_path: Path) -> tuple[AuthorizedActionRunner, PolicyAuthority, Ed25519PrivateKey, FakeNative]:
     def clock() -> float:
         return 2_000_000_000.0
+
     issuer = Ed25519PrivateKey.generate()
     policy = PolicyAuthority(LocalPairing())
     local = FakeNative()
