@@ -12,6 +12,7 @@ import pytest
 from local_gpt_mcp.desktop import ControlInfo, DesktopDenied, Rect, WindowIdentity
 from local_gpt_mcp.desktop.windows import (
     KEYEVENTF_UNICODE,
+    KEYEVENTF_KEYUP,
     MOUSEEVENTF_LEFTDOWN,
     MOUSEEVENTF_LEFTUP,
     WindowsBackend,
@@ -233,7 +234,8 @@ def test_identity_is_bound_to_same_native_process(monkeypatch: pytest.MonkeyPatc
         backend._guard(41)
 
 
-def test_click_releases_button_after_local_stop(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("key", [False, True])
+def test_input_release_on_stop(monkeypatch: pytest.MonkeyPatch, key: bool) -> None:
     backend = fake_native(monkeypatch)
     backend.trust_local([41])
     sent: list[int] = []
@@ -242,11 +244,14 @@ def test_click_releases_button_after_local_stop(monkeypatch: pytest.MonkeyPatch)
     def send(kind: int, *, flags: int, value: int = 0) -> None:
         nonlocal active
         sent.append(flags)
-        if flags == MOUSEEVENTF_LEFTDOWN:
+        if len(sent) == 1:
             active = False
 
     monkeypatch.setattr(backend, "_send", send)
     monkeypatch.setattr(backend, "desktop_ready", lambda: active)
     with pytest.raises(DesktopDenied, match="locked"):
-        backend.click(41, 100, 100)
-    assert sent == [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP]
+        if key:
+            backend.press_key(41, "tab")
+        else:
+            backend.click(41, 100, 100)
+    assert sent == ([0, KEYEVENTF_KEYUP] if key else [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP])

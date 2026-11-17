@@ -34,7 +34,6 @@ class _ActionJob:
 
 
 class RemoteActionRelay:
-    """Never owns proof signing keys, local grants or desktop APIs."""
 
     def __init__(
         self,
@@ -147,7 +146,6 @@ class RemoteActionRelay:
     def reply_trusted(
         self, owner: str, device_id: str, job_id: str, result: Mapping[str, str | int | bool]
     ) -> None:
-        """Acknowledge one delivered job; network retries do not replay input."""
         with self._lock:
             job = self._jobs.get(job_id)
             if (

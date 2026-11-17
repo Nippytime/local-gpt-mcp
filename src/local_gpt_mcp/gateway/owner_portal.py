@@ -51,7 +51,6 @@ class OwnerPortalConfig:
 
 
 def install_owner_portal(app: Starlette, config: GatewayConfig, portal: OwnerPortalConfig) -> None:
-    """Serve same-origin static UI only when explicitly operator configured."""
     portal.validate(config)
     gateway = urlsplit(config.resource_url)
     origin = f"{gateway.scheme}://{gateway.netloc}"

@@ -47,7 +47,6 @@ def load_local_issuer() -> Ed25519PublicKey:
 
 
 def select_foreground_window(policy: PolicyAuthority, handle: int) -> WindowsClickAdapter:
-    """Local operator selects an exact handle; never switch focus automatically."""
     if sys.platform != "win32" or os.name != "nt" or type(handle) is not int or handle <= 0:
         raise RuntimeError("A real interactive Windows window handle is required")
     backend = WindowsBackend(stopped=lambda: policy.stopped)
@@ -73,7 +72,6 @@ async def run_locally_approved(
     owner_id: str,
     window_handle: int,
 ) -> None:
-    """Run only after a local owner has pinned issuer and approved pairing in Tk."""
     if sys.platform != "win32" or os.name != "nt" or not valid_identifier(owner_id):
         raise RuntimeError("Interactive Windows and a valid verified owner ID are required")
     issuer = load_local_issuer()
@@ -83,7 +81,6 @@ async def run_locally_approved(
     policy_panel.bind_authority(policy)
     try:
         policy_panel.start()
-        # This is a LOCAL Tk typed-challenge approval, not a cloud or MCP consent.
         policy.pair(PairingRequest(owner_id, identity.device_id))
         replay_file: Path = credential_file().parent / REPLAY_NAME
         verifier = RemoteApprovalVerifier(

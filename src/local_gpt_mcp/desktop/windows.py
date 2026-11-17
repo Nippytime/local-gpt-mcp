@@ -326,5 +326,7 @@ class WindowsBackend:
         self._guard(handle)
         vk = KEY_CODES[key]
         self._send(1, flags=0, value=vk)
-        self._guard(handle)
-        self._send(1, flags=KEYEVENTF_KEYUP, value=vk)
+        try:
+            self._guard(handle)
+        finally:
+            self._send(1, flags=KEYEVENTF_KEYUP, value=vk)
