@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
-from local_gpt_mcp.policy.authority import Caller, Capability, PolicyAuthority
+from local_gpt_mcp.policy.authority import AccessDenied, Caller, Capability, PolicyAuthority
 from local_gpt_mcp.policy.remote_receipts import (
     RemoteApprovalDenied,
     RemoteApprovalVerifier,
@@ -62,15 +62,29 @@ class AuthorizedActionRunner:
         parameters = delivery.get("parameters")
         receipt = delivery.get("receipt")
         if (
-            not all(isinstance(value, str) for value in (
-                job_id, owner, device, session, target, capability, fingerprint, operation, receipt
-            ))
+            not all(
+                isinstance(value, str)
+                for value in (
+                    job_id,
+                    owner,
+                    device,
+                    session,
+                    target,
+                    capability,
+                    fingerprint,
+                    operation,
+                    receipt,
+                )
+            )
             or device != self.device_id
             or capability != Capability.WINDOW_INPUT.value
             or operation != "window.click"
             or not isinstance(parameters, dict)
             or set(parameters) != {"x", "y"}
-            or any(type(parameters[axis]) is not int or not 0 <= parameters[axis] <= 100_000 for axis in ("x", "y"))
+            or any(
+                type(parameters[axis]) is not int or not 0 <= parameters[axis] <= 100_000
+                for axis in ("x", "y")
+            )
         ):
             raise DeviceUnavailable("Unsupported remote input payload")
         try:
@@ -93,15 +107,13 @@ class AuthorizedActionRunner:
             # Native implementation must recheck Windows foreground, lock/UAC and
             # the authority STOP immediately at the actual input dispatch.
             result = await self.executor.execute(action.target, operation, parameters)
-        except (RemoteApprovalDenied, ValueError, TypeError) as error:
+        except (AccessDenied, ValueError, TypeError) as error:
             raise DeviceUnavailable("Remote input was not locally authorized") from error
         if (
             not isinstance(result, dict)
             or len(result) > 8
             or any(
-                not isinstance(key, str)
-                or not 0 < len(key) <= 60
-                or not isinstance(value, str | int | bool)
+                not isinstance(key, str) or not 0 < len(key) <= 60 or not isinstance(value, str | int | bool)
                 for key, value in result.items()
             )
         ):

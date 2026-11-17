@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -37,13 +38,14 @@ class FakeNative:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str]] = []
 
-    async def execute(self, target: str, operation: str, parameters: dict[str, int]) -> dict[str, bool]:
+    async def execute(self, target: str, operation: str, parameters: Mapping[str, int]) -> dict[str, bool]:
         self.calls.append((target, operation))
         return {"ok": True}
 
 
 def fixture(tmp_path: Path) -> tuple[AuthorizedActionRunner, PolicyAuthority, Ed25519PrivateKey, FakeNative]:
-    clock = lambda: 2_000_000_000.0
+    def clock() -> float:
+        return 2_000_000_000.0
     issuer = Ed25519PrivateKey.generate()
     policy = PolicyAuthority(LocalPairing())
     local = FakeNative()
