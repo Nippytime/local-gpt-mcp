@@ -82,9 +82,9 @@ def install_owner_portal(app: Starlette, config: GatewayConfig, portal: OwnerPor
     }
 
     def allowed(request: Request) -> bool:
-        return request.headers.get("host", "").casefold() == gateway.netloc.casefold() and request.headers.get(
-            "origin"
-        ) in (None, origin)
+        return request.headers.get(
+            "host", ""
+        ).casefold() == gateway.netloc.casefold() and request.headers.get("origin") in (None, origin)
 
     async def page(request: Request) -> Response:
         if not allowed(request):

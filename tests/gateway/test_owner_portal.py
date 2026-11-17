@@ -77,10 +77,14 @@ async def test_portal_not_enabled_in_default_gateway() -> None:
 
 def test_portal_configuration_refuses_redirected_or_unpinned_idp() -> None:
     with pytest.raises(ValueError):
-        OwnerPortalConfig("browser", "https://evil.example.com/authorize", PORTAL.token_endpoint).validate(CONFIG)
-    with pytest.raises(ValueError):
-        OwnerPortalConfig("browser", "http://login.example.com/authorize", PORTAL.token_endpoint).validate(CONFIG)
-    with pytest.raises(ValueError):
-        OwnerPortalConfig("browser", PORTAL.authorization_endpoint, "https://login.example.com/token?x=1").validate(
+        OwnerPortalConfig("browser", "https://evil.example.com/authorize", PORTAL.token_endpoint).validate(
             CONFIG
         )
+    with pytest.raises(ValueError):
+        OwnerPortalConfig("browser", "http://login.example.com/authorize", PORTAL.token_endpoint).validate(
+            CONFIG
+        )
+    with pytest.raises(ValueError):
+        OwnerPortalConfig(
+            "browser", PORTAL.authorization_endpoint, "https://login.example.com/token?x=1"
+        ).validate(CONFIG)
