@@ -70,8 +70,15 @@ async def test_approved_job_dispatches_once_and_is_exactly_bound() -> None:
     signature = key.sign(auth + hashlib.sha256(client).digest(), ec.ECDSA(hashes.SHA256()))
     live[0] = False
     with pytest.raises(RemoteApprovalDenied, match="disconnected"):
-        approvals.finish("alice", str(request["job_id"]), CREDENTIAL, challenge.challenge,
-            client_data=client, authenticator_data=auth, signature=signature)
+        approvals.finish(
+            "alice",
+            str(request["job_id"]),
+            CREDENTIAL,
+            challenge.challenge,
+            client_data=client,
+            authenticator_data=auth,
+            signature=signature,
+        )
     live[0] = True
     approvals.finish(
         "alice",
