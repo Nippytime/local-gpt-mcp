@@ -12,6 +12,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import Protocol
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -85,11 +86,20 @@ def sign_request(
     }
 
 
-class DeviceReplayGuard:
-    """A bounded in-memory nonce cache; production needs durable/shared replay state."""
+class NonceStore(Protocol):
+    """Atomic single-host durable nonce consumption; called only after signature validation."""
 
-    def __init__(self, *, clock: Callable[[], float] = time.time) -> None:
+    def consume_device_nonce(self, device_id: str, nonce: str, *, now: float, expires_at: float) -> bool: ...
+
+
+class DeviceReplayGuard:
+    """Bounded replay protection: private shared ledger when configured, otherwise in-memory."""
+
+    def __init__(
+        self, *, clock: Callable[[], float] = time.time, store: NonceStore | None = None
+    ) -> None:
         self._clock = clock
+        self._store = store
         self._lock = threading.Lock()
         self._seen: dict[tuple[str, str], float] = {}
 
@@ -111,8 +121,14 @@ class DeviceReplayGuard:
             public_key.verify(signature, signed)
         except (KeyError, ValueError, InvalidSignature, TypeError, UnicodeError, binascii.Error) as error:
             raise DeviceAuthenticationError("Invalid device authentication") from error
+        now = self._clock()
+        if self._store is not None:
+            if not self._store.consume_device_nonce(
+                device_id, nonce, now=now, expires_at=timestamp + SKEW_SECONDS
+            ):
+                raise DeviceAuthenticationError("Replayed or exhausted device nonce budget")
+            return
         with self._lock:
-            now = self._clock()
             self._seen = {key: expiry for key, expiry in self._seen.items() if expiry > now}
             key = (device_id, nonce)
             if key in self._seen or len(self._seen) >= 20_000:

@@ -67,7 +67,7 @@ class AgentRelay:
         self._enrollments: dict[str, _Enrollment] = {}
         self._members: dict[str, _Member] = {}
         self._jobs: dict[str, _Job] = {}
-        self._guard = DeviceReplayGuard(clock=self._clock)
+        self._guard = DeviceReplayGuard(clock=self._clock, store=stops)
         self._lock = threading.RLock()
 
     def bind(self, directory: DeviceDirectory) -> None:
