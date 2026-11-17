@@ -35,15 +35,23 @@ async def _owner(request: Request, verify: TokenVerifier, resource: str) -> str:
     return auth.subject
 
 
-async def _json(request: Request) -> dict[str, Any]:
-    if request.headers.get("content-length", "0").isdigit():
-        if int(request.headers["content-length"]) > MAX_BODY:
-            raise DeviceAuthenticationError("Body too large")
-    body = await request.body()
-    if len(body) > MAX_BODY:
+async def _bounded_body(request: Request) -> bytes:
+    """Read an unauthenticated streamed body without unbounded buffering."""
+    length = request.headers.get("content-length")
+    if length is not None and (not length.isdecimal() or int(length) > MAX_BODY):
         raise DeviceAuthenticationError("Body too large")
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > MAX_BODY:
+            raise DeviceAuthenticationError("Body too large")
+    return bytes(data)
+
+
+async def _json(request: Request, body: bytes | None = None) -> dict[str, Any]:
+    raw = await _bounded_body(request) if body is None else body
     try:
-        data = json.loads(body)
+        data = json.loads(raw)
     except (ValueError, UnicodeDecodeError) as error:
         raise DeviceAuthenticationError("Invalid request body") from error
     if not isinstance(data, dict):
@@ -105,12 +113,10 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
         return JSONResponse({"enrolled": True})
 
     async def authenticated_agent(request: Request) -> tuple[str, str, dict[str, Any]]:
-        body = await request.body()
-        if len(body) > MAX_BODY:
-            raise DeviceAuthenticationError("Body too large")
+        body = await _bounded_body(request)
         device_id = request.headers.get("x-device-id", "")
         owner = relay.authenticate(device_id, request.url.path, body, request.headers)
-        data = await _json(request)
+        data = await _json(request, body)
         return owner, device_id, data
 
     @safe

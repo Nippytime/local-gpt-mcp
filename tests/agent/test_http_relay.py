@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 
 import httpx2 as httpx
 import pytest
 from mcp.server.auth.provider import AccessToken
 
-from local_gpt_mcp.agent.identity import DeviceIdentity, sign_request
+from local_gpt_mcp.agent.identity import MAX_BODY, DeviceIdentity, sign_request
 from local_gpt_mcp.agent.outbound import OutboundAgent
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig
@@ -203,3 +203,36 @@ async def test_owner_and_agent_routes_reject_foreign_host_and_browser_origin() -
             headers={**signed, "Host": "untrusted.example.com"},
         )
         assert denied_poll.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_streaming_body_bounds_and_missing_content_length() -> None:
+    relay = AgentRelay()
+    directory = DeviceDirectory(relay)
+    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+
+    async def valid_stream() -> AsyncIterator[bytes]:
+        yield b'{"label":"Streaming PC"}'
+
+    async def oversized_stream() -> AsyncIterator[bytes]:
+        yield b'{"label":"'
+        yield b"A" * MAX_BODY
+        yield b'"}'
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
+    ) as client:
+        permitted = await client.post(
+            "/api/owner/enrollments",
+            content=valid_stream(),
+            headers={"Authorization": "Bearer alice"},
+        )
+        assert permitted.status_code == 200
+        assert permitted.json()["device_id"].startswith("pc-")
+
+        denied = await client.post(
+            "/api/owner/enrollments",
+            content=oversized_stream(),
+            headers={"Authorization": "Bearer alice"},
+        )
+        assert denied.status_code == 403
