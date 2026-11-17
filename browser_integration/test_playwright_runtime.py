@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from mcp import Client
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route
 
 from local_gpt_mcp.browser import BrowserController
@@ -206,3 +208,50 @@ async def test_network_route_denies_private_and_cross_origin_requests(
         route = RouteFake(url)
         await runtime._network(route)  # type: ignore[arg-type]
         assert route.result == expected
+
+
+@pytest.mark.anyio
+async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Observe an actual TCP listener, not just an intercepted Playwright route fake."""
+    accepted = 0
+
+    async def observe(_reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        nonlocal accepted
+        accepted += 1
+        writer.close()
+        await writer.wait_closed()
+
+    listener = await asyncio.start_server(observe, "127.0.0.1", 0)
+    try:
+        assert listener.sockets is not None
+        port = listener.sockets[0].getsockname()[1]
+        routed: list[str] = []
+
+        def safe_fetch(url: str, origin: str, method: str, _headers: dict[str, str]) -> PinnedResponse:
+            routed.append(url)
+            if origin_of(url) != origin or method != "GET":
+                raise BrowserDenied("Unapproved browser egress")
+            return PinnedResponse(200, {"content-type": "text/html"}, b"<html><body>safe page</body></html>")
+
+        monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver.fetch_public_https", safe_fetch)
+        broker = SessionBroker(PolicyAuthority(Approval()))
+        controller = BrowserController(broker)
+        async with IsolatedBrowserSession("https://example.com", controller, headless=True) as runtime:
+            assert runtime.context is not None
+            page = runtime.context.pages[0]
+            await page.goto("https://example.com/approved", wait_until="domcontentloaded", timeout=10_000)
+            assert "safe page" in await page.locator("body").inner_text()
+            assert "https://example.com/approved" in routed
+
+            local_url = f"http://127.0.0.1:{port}/private"
+            with pytest.raises(PlaywrightError):
+                await page.goto(local_url, wait_until="domcontentloaded", timeout=5_000)
+            assert local_url in routed
+
+        await asyncio.sleep(0.05)
+        assert accepted == 0, "Chromium must not connect directly to the private listener"
+    finally:
+        listener.close()
+        await listener.wait_closed()
