@@ -52,11 +52,7 @@ class _Pending:
 
 
 class OwnerPresence:
-    """Prove actual UV/UP with a pinned passkey before minting a receipt.
-
-    The trusted issuer private key must not be placed in the browser or MCP
-    runtime; the Windows device separately pins its public verification key.
-    """
+    """Verify owner UP/UV with pinned passkey; keep the issuer key server-side."""
 
     def __init__(
         self,

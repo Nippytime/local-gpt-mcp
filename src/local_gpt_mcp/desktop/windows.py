@@ -292,14 +292,16 @@ class WindowsBackend:
             raise DesktopDenied("Windows rejected the input event")
 
     def click(self, handle: int, x: int, y: int) -> None:
-        info = self._guard(handle)
-        if not info.rect.contains(x, y):
-            raise DesktopDenied("Click outside selected window")
-        point_target = self._gui.WindowFromPoint((x, y))
-        if self._gui.GetAncestor(point_target, GA_ROOT) != handle:
-            raise DesktopDenied("Another window obscures the click location")
+        def guard_point() -> None:
+            info = self._guard(handle)
+            if not info.rect.contains(x, y) or self._gui.GetAncestor(
+                self._gui.WindowFromPoint((x, y)), GA_ROOT
+            ) != handle:
+                raise DesktopDenied("Click point moved or is obscured")
+
+        guard_point()
         self._api.SetCursorPos((x, y))
-        self._guard(handle)
+        guard_point()
         self._send(0, flags=MOUSEEVENTF_LEFTDOWN)
         self._guard(handle)
         self._send(0, flags=MOUSEEVENTF_LEFTUP)

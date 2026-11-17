@@ -1,9 +1,4 @@
-"""Locally opted-in Win32 click adapter; remote requests cannot choose windows.
-
-Only a trusted local UI may construct this adapter via select_local_windows.
-WindowsBackend rechecks the real unlocked desktop, window identity, same
-interactive user/session, elevation, foreground and occlusion before each input.
-"""
+"""Locally approved native input, scoped to an unchanged selected Win32 window."""
 
 from __future__ import annotations
 
@@ -78,23 +73,16 @@ class WindowsClickAdapter:
         if self._policy.stopped:
             raise DeviceUnavailable("Local emergency STOP is active")
         try:
-            # WindowsBackend.click also validates window/process identity,
-            # desktop lock/UAC, foreground and point occlusion at dispatch.
             self._backend.click(hwnd, x, y)
         except (DesktopDenied, OSError, ValueError, PermissionError) as error:
             raise DeviceUnavailable("Windows refused locally scoped input") from error
         if self._policy.stopped:
-            # The input may already have occurred. Never advise an automatic retry.
             raise DeviceUnavailable("Input completion uncertain after emergency STOP")
         return {"ok": True}
 
 
 def select_local_windows(policy: PolicyAuthority, handles: Iterable[int]) -> WindowsClickAdapter:
-    """Use ONLY inside a trusted local Windows UI following explicit selection.
-
-    This function is not registered as an MCP/HTTP tool and is never invoked
-    by the default outbound agent CLI.
-    """
+    """Trusted local selection only; never an MCP or HTTP tool."""
     if policy.stopped:
         raise DeviceUnavailable("Local emergency STOP is active")
     backend = WindowsBackend(stopped=lambda: policy.stopped)

@@ -1,8 +1,4 @@
-"""Durable, owner-scoped WebAuthn public credentials and monotonic counters.
-
-Never stores private signing keys or authenticator secrets. Registration and
-revocation are trusted operator operations, not OAuth/MCP endpoints.
-"""
+"""Operator-trusted owner passkey public keys and monotonic counters; never private keys."""
 
 from __future__ import annotations
 
@@ -91,11 +87,7 @@ class MemoryPasskeys:
 
 
 class SQLitePasskeys:
-    """One-host durable store; use an operator-owned directory and restricted volume.
-
-    Cross-process updates use BEGIN IMMEDIATE so a lower or repeated counter
-    cannot win a race after another passkey assertion has been validated.
-    """
+    """Transactional single-host public key and anti-replay counter store."""
 
     def __init__(self, path: Path) -> None:
         if (

@@ -1,8 +1,4 @@
-"""Device-local, fail-closed execution gate for independent owner receipts.
-
-All remote input requires a pinned receipt verifier, a trusted local pairing,
-and an explicitly installed native adapter with its own lock/UAC/target checks.
-"""
+"""Device-local execution requires issuer proof, pairing and a guarded native adapter."""
 
 from __future__ import annotations
 

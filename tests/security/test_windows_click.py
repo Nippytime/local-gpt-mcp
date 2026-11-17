@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
 from local_gpt_mcp.agent.windows_click import WindowsClickAdapter
 from local_gpt_mcp.desktop.controller import DesktopDenied
 from local_gpt_mcp.desktop.types import Rect, WindowIdentity, WindowInfo
+from local_gpt_mcp.desktop.windows import WindowsBackend
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
 from local_gpt_mcp.policy.authority import PolicyAuthority
 
@@ -122,3 +124,18 @@ def test_never_implicitly_trusts_unselected_windows() -> None:
     backend = FakeWindows()
     with pytest.raises(DeviceUnavailable):
         WindowsClickAdapter(backend, PolicyAuthority(), frozenset())
+
+def test_native_click_refuses_new_occlusion_after_cursor_move() -> None:
+    native = object.__new__(WindowsBackend)
+    sent: list[int] = []
+    points = iter((41, 99))
+    native._guard = lambda handle: FakeWindows().window_info
+    native._gui = SimpleNamespace(
+        WindowFromPoint=lambda point: next(points),
+        GetAncestor=lambda target, root: target,
+    )
+    native._api = SimpleNamespace(SetCursorPos=lambda point: None)
+    native._send = lambda kind, **kwargs: sent.append(kind)
+    with pytest.raises(DesktopDenied, match="obscured"):
+        native.click(41, 20, 30)
+    assert sent == []
