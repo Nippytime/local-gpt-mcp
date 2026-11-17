@@ -11,8 +11,8 @@ from mcp import Client
 from playwright.async_api import Route
 
 from local_gpt_mcp.browser import BrowserController
-from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession
 from local_gpt_mcp.browser.controller import BrowserDenied, origin_of
+from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession
 from local_gpt_mcp.browser.safe_fetch import PinnedResponse
 from local_gpt_mcp.mcp.server import create_server
 from local_gpt_mcp.orchestrator.models import Step
