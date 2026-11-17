@@ -58,3 +58,11 @@ Remote approval does **not** justify bypassing Windows lock, UAC, session isolat
 6. **Release:** verify full CI, live DNS/network and physical Windows security, then close high-risk blockers with evidence and issue a separately audited production release.
 
 A product is **not ready** until someone can use the actual ChatGPT web interface, away from home, to operate *their own* paired Windows PC under these security checks. The release manifest holds an additional `WEB_REMOTE_E2E` high-risk blocker so CI enforces this rather than treating a local-only build as complete.
+
+
+
+## Dedicated OAuth client for owner device management (Issue #47)
+
+The `POST /api/owner/enrollments`, `/api/owner/revoke`, and `/api/owner/halt` endpoints are **independent owner-management interfaces**, not ChatGPT MCP tools. They now require a verified OAuth bearer containing the exact `devices:manage` scope **and** a configured, exact-match owner browser OAuth client identity. Deployments should register an independently consented browser client at the trusted IdP and configure its nonsecret identifier as `LOCAL_MCP_OWNER_CLIENT_ID`. With no owner client configured, all three owner-management endpoints deny even a valid broad-scope bearer; signed outbound device poll/result remain available to already-enrolled and locally authorized devices. This prevents an MCP/model OAuth client accidentally granted `devices:manage` from generating device enrollment codes or initiating owner HALT.
+
+The client pin is not a passkey assertion or proof of physical ownership. Do not reuse the ChatGPT/model client ID as the owner browser ID, and do not make this setting caller-controlled. Real owner OAuth, native Windows STOP/lock/UAC and distant ChatGPT web-to-PC acceptance remain mandatory and unverified.
