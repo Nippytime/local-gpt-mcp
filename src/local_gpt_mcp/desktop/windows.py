@@ -316,7 +316,10 @@ class WindowsBackend:
             for i in range(0, len(units), 2):
                 key = units[i] | units[i + 1] << 8
                 self._send(1, flags=KEYEVENTF_UNICODE, value=key)
-                self._send(1, flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, value=key)
+                try:
+                    self._guard(handle)
+                finally:
+                    self._send(1, flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, value=key)
 
     def scroll(self, handle: int, steps: int) -> None:
         self._guard(handle)
