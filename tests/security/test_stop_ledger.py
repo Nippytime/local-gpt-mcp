@@ -18,8 +18,10 @@ def private_db(tmp_path: Path) -> Path:
 
 def test_persistent_tenant_scoped_revocation_and_irreversible_halt(tmp_path: Path) -> None:
     path = private_db(tmp_path)
-    first = SQLiteStopLedger(path)
+    first = SQLiteStopLedger.provision(path)
     second = SQLiteStopLedger(path)
+    with pytest.raises(StopDenied):
+        SQLiteStopLedger.provision(path)
     first.require_allowed("alice", "pc-one")
     first.require_allowed("bob", "pc-one")
     first.revoke_device("alice", "pc-one")
@@ -38,14 +40,14 @@ def test_persistent_tenant_scoped_revocation_and_irreversible_halt(tmp_path: Pat
 
 @pytest.mark.parametrize("owner,device", [("", None), ("alice", ""), ("alice", "pc with space")])
 def test_invalid_stop_identity_is_denied(tmp_path: Path, owner: str, device: str | None) -> None:
-    ledger = SQLiteStopLedger(private_db(tmp_path))
+    ledger = SQLiteStopLedger.provision(private_db(tmp_path))
     with pytest.raises(StopDenied):
         ledger.require_allowed(owner, device)
 
 
 def test_missing_corrupt_or_repermissioned_store_fails_closed(tmp_path: Path) -> None:
     path = private_db(tmp_path)
-    ledger = SQLiteStopLedger(path)
+    ledger = SQLiteStopLedger.provision(path)
     os.chmod(path, 0o644)
     with pytest.raises(StopDenied):
         ledger.require_allowed("alice", "pc-one")
@@ -53,6 +55,8 @@ def test_missing_corrupt_or_repermissioned_store_fails_closed(tmp_path: Path) ->
     path.unlink()
     with pytest.raises(StopDenied):
         ledger.require_allowed("alice", "pc-one")
+    with pytest.raises(StopDenied):
+        SQLiteStopLedger(path)  # restart cannot silently recreate an erased STOP decision
     path.write_bytes(b"not-a-sqlite-database")
     os.chmod(path, 0o600)
     with pytest.raises(StopDenied):
