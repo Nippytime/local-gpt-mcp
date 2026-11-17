@@ -17,9 +17,11 @@ from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 
 from local_gpt_mcp.gateway.agent_api import install_agent_routes
+from local_gpt_mcp.gateway.approval_api import install_approval_routes
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
+from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 
 READ_SCOPE = "devices:read"
 
@@ -78,6 +80,7 @@ def create_gateway(
     directory: DeviceDirectory | None = None,
     verifier: TokenVerifier | None = None,
     relay: AgentRelay | None = None,
+    approvals: OwnerApprovalQueue | None = None,
 ) -> Starlette:
     """Expose the authenticated MCP server plus optional outbound-only agent APIs."""
     token_verifier = verifier if verifier is not None else JWTVerifier(config)
@@ -99,6 +102,8 @@ def create_gateway(
     )
     if relay is not None:
         install_agent_routes(app, relay, token_verifier, config.resource_url)
+    if approvals is not None:
+        install_approval_routes(app, approvals, token_verifier, config.resource_url)
     return app
 
 

@@ -27,3 +27,20 @@ No public HTTP write or approval endpoint is added by this first commit. Existin
 - owner/credential binding and emergency-stop checks before producing a 30-second exact-action receipt. The device still checks the separately pinned receipt issuer and nonce database.
 
 Deterministic tests generate real P-256 signatures and reject forged keys, foreign origins, missing UV, stale challenges, counter rollback and consumed challenges. **No browser registration ceremony, production durable credential/counter storage, independently authenticated phone UI, trusted pending-relay-job linkage, native input wiring, real two-device session, or deployable hosting is claimed by this unit.** Never expose `begin`, `finish`, `register_trusted` or the receipt signer as MCP tools. Model-controlled web content cannot be treated as the trusted approval UI.
+
+
+## Trusted pending job and OAuth-owner API prototype — PR #28
+
+The `OwnerApprovalQueue` allows only **trusted, in-process relay code** to enqueue a job bound to owner, device, session, job ID, target, capability, and the canonical hash of the **actual** action operation/parameters. The owner cannot generate an arbitrary job from an HTTP request, choose its target/parameters at approval time, or retrieve the receipt from the owner-facing API. A 60-second bound, single WebAuthn challenge, exact job matching, one-time trusted receipt pickup, explicit deny, bounded pending capacity and owner-queue halt are enforced in the prototype.
+
+`create_gateway(..., approvals=...)` optionally enables separate owner OAuth endpoints. It is **disabled by default** on the production `create_from_env` entry point until an independently authenticated owner portal and durable store are configured. These endpoints are not MCP tools:
+
+| Endpoint | Scope | Behavior |
+| --- | --- | --- |
+| `GET /api/owner/approvals` | `approvals:manage` | Owner-only pending exact action details, no receipts |
+| `POST /api/owner/approvals/begin` | `approvals:manage` | Challenge for an existing owner job and pre-enrolled passkey |
+| `POST /api/owner/approvals/finish` | `approvals:manage` **plus real passkey UP+UV assertion** | Authorize the precise pending job, returns acknowledgement only |
+| `POST /api/owner/approvals/deny` | `approvals:manage` | Cancel the specific pending job |
+| `POST /api/owner/approvals/halt` | `approvals:manage` | Cancel future approvals for this process/owner (not yet the native STOP) |
+
+Host/Origin checks, bounded request bodies, `Cache-Control: no-store`, and denial when the passkey or job is absent are required. Only the trusted device delivery seam `take_trusted` can retrieve a proof after verified owner presence; it is **not** an HTTP/MCP endpoint and is not yet integrated into signed agent polls. No public HTTP write/approval app is deployed, and no user should treat this as a production approval portal. Remaining work: production passkey enrollment and storage, OAuth PKCE browser integration, per-job real device/action creation, native STOP and execution-time verification on Windows, actual remote phone test and three release blockers.

@@ -87,7 +87,11 @@ def install_approval_routes(
             data.get("credential_id"),
             data.get("challenge"),
         )
-        if not all(isinstance(value, str) for value in (job_id, credential_id, challenge)):
+        if not (
+            isinstance(job_id, str)
+            and isinstance(credential_id, str)
+            and isinstance(challenge, str)
+        ):
             raise RemoteApprovalDenied("Malformed owner assertion")
         approvals.finish(
             owner,
