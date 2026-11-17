@@ -192,6 +192,11 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
         )
         assert accepted.status_code == 200
         assert await pending == {"ok": True}
+        # An in-memory-only relay must not acknowledge a durable owner HALT.
+        halted = await client.post(
+            "/api/owner/approvals/halt", headers={"Authorization": "Bearer alice"}, json={}
+        )
+        assert halted.status_code == 403
         assert (
             await signed_post(
                 client,

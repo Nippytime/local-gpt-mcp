@@ -16,6 +16,7 @@ from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.agent_api import _json, _owner
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied, _decode
+from local_gpt_mcp.policy.stop_ledger import StopDenied
 
 APPROVAL_SCOPE = "approvals:manage"
 
@@ -28,6 +29,7 @@ def install_approval_routes(
     *,
     actions: RemoteActionRelay | None = None,
     owner_client_id: str | None = None,
+    stop_owner: Callable[[str], None] | None = None,
 ) -> None:
     """Private non-MCP routes with owner token plus mandatory passkey assertions."""
     public = urlsplit(resource)
@@ -44,7 +46,7 @@ def install_approval_routes(
                 ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted owner approval origin")
                 response = await handler(request)
-            except (RemoteApprovalDenied, DeviceAuthenticationError, ValueError, TypeError):
+            except (RemoteApprovalDenied, DeviceAuthenticationError, StopDenied, ValueError, TypeError):
                 response = JSONResponse({"error": "Approval unavailable"}, status_code=403)
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Content-Type-Options"] = "nosniff"
@@ -117,6 +119,8 @@ def install_approval_routes(
     @safe
     async def halt(request: Request) -> JSONResponse:
         owner = await authenticate(request)
+        if stop_owner is not None:
+            stop_owner(owner)
         if actions is None:
             approvals.halt_owner(owner)
         else:

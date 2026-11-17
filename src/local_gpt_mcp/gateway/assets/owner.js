@@ -85,16 +85,14 @@ function requestCard(request) {
   card.append(title, details);
   if (request.approved) {
     const label = document.createElement("p");
-    label.textContent = "Approved; awaiting the Windows PC.";
-    card.append(label);
+    label.textContent = "Approved; awaiting the Windows PC."; card.append(label);
     return card;
   }
   const chooser = document.createElement("select");
   chooser.setAttribute("aria-label", "Passkey for this approval");
   for (const credentialId of credentialIds) {
     const option = document.createElement("option");
-    option.value = credentialId;
-    option.textContent = credentialId;
+    option.value = credentialId; option.textContent = credentialId;
     chooser.append(option);
   }
   const approve = document.createElement("button");
@@ -144,8 +142,7 @@ async function refresh() {
   for (const request of requests.approvals) list.append(requestCard(request));
   if (!requests.approvals.length) {
     const empty = document.createElement("p");
-    empty.textContent = "No pending PC requests.";
-    list.append(empty);
+    empty.textContent = "No pending PC requests."; list.append(empty);
   }
   if (!credentialIds.length) status("No owner passkey is registered. Trusted enrollment is required.");
 }

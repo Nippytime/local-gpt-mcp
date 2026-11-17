@@ -162,6 +162,7 @@ def create_gateway(
             config.resource_url,
             actions=actions,
             owner_client_id=portal.client_id if portal is not None else None,
+            stop_owner=relay.halt_owner if actions is not None and relay is not None else None,
         )
     if portal is not None:
         install_owner_portal(app, config, portal)
