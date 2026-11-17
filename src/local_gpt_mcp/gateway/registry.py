@@ -6,11 +6,14 @@ The outbound agent (Issue #22) must implement the read transport separately.
 
 from __future__ import annotations
 
+import json
 import re
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
+
+from local_gpt_mcp.browser.controller import BrowserDenied, approved_origin
 
 IDENTITY = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$")
 READ_KINDS = frozenset({"desktop_window_info", "desktop_controls", "browser_read"})
@@ -37,6 +40,14 @@ class ReadRequest:
             or (self.kind != "browser_read" and self.selector)
         ):
             raise DeviceUnavailable("Unsupported scoped observation")
+        if self.kind.startswith("desktop_"):
+            if re.fullmatch(r"window:[1-9][0-9]{0,15}", self.target) is None:
+                raise DeviceUnavailable("A selected HWND is required")
+        else:
+            try:
+                approved_origin(self.target)
+            except BrowserDenied:
+                raise DeviceUnavailable("A public HTTPS origin is required") from None
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +136,16 @@ class DeviceDirectory:
         with self._lock:
             if not self._owned(owner, device_id).online:
                 raise DeviceUnavailable("Device disconnected")
-        if not isinstance(result, Mapping) or len(str(result)) > 8192:
+        if not isinstance(result, Mapping) or len(result) > 32:
             raise DeviceUnavailable("Untrusted device response")
-        return dict(result)
+        if any(
+            not isinstance(key, str)
+            or not 0 < len(key) <= 80
+            or not isinstance(value, str | int | bool)
+            for key, value in result.items()
+        ):
+            raise DeviceUnavailable("Untrusted device response")
+        output = dict(result)
+        if len(json.dumps(output)) > 8192:
+            raise DeviceUnavailable("Untrusted device response")
+        return output
