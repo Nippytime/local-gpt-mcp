@@ -40,6 +40,8 @@ def test_trusted_credential_survives_restart_and_is_owner_isolated(tmp_path: Pat
     assert stored.owner == "alice"
     assert stored.sign_count == 0
     assert stored.key.public_numbers() == key.public_key().public_numbers()
+    assert restart.list_owned("alice") == [CREDENTIAL_ID]
+    assert restart.list_owned("bob") == []
     with pytest.raises(RemoteApprovalDenied, match="another owner"):
         restart.advance("bob", CREDENTIAL_ID, 1)
     if os.name != "nt":
@@ -79,6 +81,7 @@ def test_owner_presence_uses_durable_passkey_and_revocation(tmp_path: Path) -> N
     with pytest.raises(RemoteApprovalDenied):
         presence.begin("bob", CREDENTIAL_ID, _action())
     store.revoke_trusted("alice", CREDENTIAL_ID)
+    assert store.list_owned("alice") == []
     with pytest.raises(RemoteApprovalDenied):
         presence.begin("alice", CREDENTIAL_ID, _action())
     # An outstanding challenge must also be invalid after key revocation.

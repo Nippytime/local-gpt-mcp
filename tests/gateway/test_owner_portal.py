@@ -88,3 +88,10 @@ def test_portal_configuration_refuses_redirected_or_unpinned_idp() -> None:
         OwnerPortalConfig(
             "browser", PORTAL.authorization_endpoint, "https://login.example.com/token?x=1"
         ).validate(CONFIG)
+
+
+def test_portal_requires_independently_configured_owner_approvals() -> None:
+    with pytest.raises(ValueError, match="approval queue"):
+        create_gateway(CONFIG, portal=PORTAL)
+    with pytest.raises(ValueError, match="OAuth public client"):
+        OwnerPortalConfig("", PORTAL.authorization_endpoint, PORTAL.token_endpoint).validate(CONFIG)
