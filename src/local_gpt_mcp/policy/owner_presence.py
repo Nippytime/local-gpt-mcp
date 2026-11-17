@@ -1,8 +1,4 @@
-"""Trusted server-side passkey assertion gate for remote owner consent.
-
-Not an MCP tool. Only a separately authenticated, owner-controlled web UI
-may call this service; registration is an internal trusted operation.
-"""
+"""Independently authenticated owner passkey assertion gate; never an MCP tool."""
 
 from __future__ import annotations
 

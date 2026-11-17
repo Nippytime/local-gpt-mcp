@@ -24,8 +24,6 @@ class SafeWindows(Protocol):
 
 
 class WindowsClickAdapter:
-    """Bound to immutable, locally selected window/process identities."""
-
     def __init__(
         self,
         backend: SafeWindows,
@@ -41,7 +39,6 @@ class WindowsClickAdapter:
     async def execute(
         self, target: str, operation: str, parameters: Mapping[str, int]
     ) -> dict[str, str | int | bool]:
-        """One bounded click only; no focus switching, typing, shell or UAC bypass."""
         match = TARGET.fullmatch(target) if isinstance(target, str) else None
         if (
             self._policy.stopped
