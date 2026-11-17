@@ -24,6 +24,16 @@ from local_gpt_mcp.agent.identity import public_key_text
 MAX_KEY_BYTES = 2048
 
 
+def _posix_value(name: str) -> int:
+    raw = vars(os).get(name)
+    if raw is None:
+        raise RuntimeError("Required POSIX security primitive is unavailable")
+    value = int(raw() if callable(raw) else raw)
+    if value <= 0:
+        raise RuntimeError("Unsafe POSIX security primitive")
+    return value
+
+
 def _trusted_path(path: Path) -> None:
     """Require a private operator-owned POSIX directory, not a shared mount."""
     if os.name != "posix":
@@ -33,7 +43,7 @@ def _trusted_path(path: Path) -> None:
     if any(parent.is_symlink() for parent in path.parents) or path.is_symlink():
         raise RuntimeError("Linked issuer key paths are not trusted")
     parent = path.parent.stat()
-    if parent.st_uid != getattr(os, "geteuid")() or parent.st_mode & 0o077:
+    if parent.st_uid != _posix_value("geteuid") or parent.st_mode & 0o077:
         raise RuntimeError("Issuer key directory must be owned by this user and private (0700)")
 
 
@@ -42,7 +52,7 @@ def provision_issuer_key(path: Path) -> str:
     _trusted_path(path)
     private = Ed25519PrivateKey.generate()
     pem = private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW")
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | _posix_value("O_NOFOLLOW")
     fd = os.open(path, flags, 0o600)
     try:
         with os.fdopen(fd, "wb") as stream:
@@ -58,12 +68,12 @@ def provision_issuer_key(path: Path) -> str:
 def load_issuer_key(path: Path) -> Ed25519PrivateKey:
     """Fail closed on altered ACL/mode, symlink, oversized or non-Ed25519 PEM."""
     _trusted_path(path)
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW"))
+    fd = os.open(path, os.O_RDONLY | _posix_value("O_NOFOLLOW"))
     try:
         info = os.fstat(fd)
         if (
             not stat.S_ISREG(info.st_mode)
-            or info.st_uid != getattr(os, "geteuid")()
+            or info.st_uid != _posix_value("geteuid")
             or info.st_mode & 0o077
             or not 0 < info.st_size <= MAX_KEY_BYTES
         ):
