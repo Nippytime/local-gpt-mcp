@@ -100,9 +100,7 @@ class AgentRelay:
             self._directory.enroll_trusted(entry.owner, device_id, entry.label)
             self._members[device_id] = _Member(entry.owner, key)
 
-    def authenticate(
-        self, device_id: str, path: str, body: bytes, headers: Mapping[str, str]
-    ) -> str:
+    def authenticate(self, device_id: str, path: str, body: bytes, headers: Mapping[str, str]) -> str:
         with self._lock:
             member = self._members.get(device_id)
             if member is None or not isinstance(device_id, str):
@@ -138,9 +136,7 @@ class AgentRelay:
                         job.future.set_exception(DeviceUnavailable("Device revoked"))
                     del self._jobs[job_id]
 
-    async def read(
-        self, owner: str, device_id: str, request: ReadRequest
-    ) -> Mapping[str, str | int | bool]:
+    async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]:
         loop = asyncio.get_running_loop()
         job_id = secrets.token_hex(16)
         with self._lock:
@@ -181,9 +177,7 @@ class AgentRelay:
                     }
         return {"job_id": None}
 
-    def reply(
-        self, owner: str, device_id: str, job_id: str, values: Mapping[str, str | int | bool]
-    ) -> None:
+    def reply(self, owner: str, device_id: str, job_id: str, values: Mapping[str, str | int | bool]) -> None:
         with self._lock:
             job = self._jobs.get(job_id)
             if (

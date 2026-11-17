@@ -121,7 +121,8 @@ class DeviceDirectory:
     def list_owned(self, owner: str) -> list[dict[str, str | bool]]:
         with self._lock:
             devices = [
-                device for device in sorted(self._devices.values(), key=lambda item: item.device_id)
+                device
+                for device in sorted(self._devices.values(), key=lambda item: item.device_id)
                 if device.owner == owner
             ]
         return [

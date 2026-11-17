@@ -51,15 +51,15 @@ async def _json(request: Request) -> dict[str, Any]:
     return data
 
 
-def install_agent_routes(
-    app: Starlette, relay: AgentRelay, verifier: TokenVerifier, resource: str
-) -> None:
+def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerifier, resource: str) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
     public = urlsplit(resource)
     host = public.netloc.casefold()
     origin = f"{public.scheme}://{public.netloc}"
 
-    def safe(handler: Callable[[Request], Awaitable[JSONResponse]]) -> Callable[[Request], Awaitable[JSONResponse]]:
+    def safe(
+        handler: Callable[[Request], Awaitable[JSONResponse]],
+    ) -> Callable[[Request], Awaitable[JSONResponse]]:
         async def call(request: Request) -> JSONResponse:
             try:
                 # The MCP SDK's transport Host/Origin policy must also apply
@@ -127,14 +127,9 @@ def install_agent_routes(
         job_id, output = data.get("job_id"), data.get("result")
         if not isinstance(job_id, str) or not isinstance(output, dict):
             raise DeviceAuthenticationError("Invalid bounded response")
-        if (
-            len(output) > 32
-            or any(
-                not isinstance(key, str)
-                or not 0 < len(key) <= 80
-                or not isinstance(value, str | int | bool)
-                for key, value in output.items()
-            )
+        if len(output) > 32 or any(
+            not isinstance(key, str) or not 0 < len(key) <= 80 or not isinstance(value, str | int | bool)
+            for key, value in output.items()
         ):
             raise DeviceAuthenticationError("Invalid response values")
         relay.reply(owner, device_id, job_id, output)
@@ -143,10 +138,9 @@ def install_agent_routes(
     # Before generic MCP transport routes: never allow a catch-all mount
     # to shadow authenticated enrollment or signed agent endpoints.
     app.router.routes[:0] = [
-
-            Route("/api/owner/enrollments", owner_enrollment, methods=["POST"]),
-            Route("/api/owner/revoke", owner_revoke, methods=["POST"]),
-            Route("/api/agent/enroll", agent_enroll, methods=["POST"]),
-            Route("/api/agent/poll", agent_poll, methods=["POST"]),
-            Route("/api/agent/result", agent_result, methods=["POST"]),
+        Route("/api/owner/enrollments", owner_enrollment, methods=["POST"]),
+        Route("/api/owner/revoke", owner_revoke, methods=["POST"]),
+        Route("/api/agent/enroll", agent_enroll, methods=["POST"]),
+        Route("/api/agent/poll", agent_poll, methods=["POST"]),
+        Route("/api/agent/result", agent_result, methods=["POST"]),
     ]
