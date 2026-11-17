@@ -205,3 +205,28 @@ async def test_oversized_malformed_and_duplicate_fields_rejected(tmp_path: Path)
         assert too_long.status_code == 403
         correct = await client.post("/api/owner/passkey/begin", json={"operator_code": code})
         assert correct.status_code == 200
+
+
+def test_enrollment_must_share_exact_gateway_oauth_verifier_and_resource(tmp_path: Path) -> None:
+    if os.name == "nt":
+        with pytest.raises(BootstrapDenied):
+            stores(tmp_path)
+        return
+    permits, credentials = stores(tmp_path)
+    verifier = Verifier()
+    api = OwnerEnrollmentAPI(
+        config=CONFIG,
+        verifier=verifier,
+        permits=permits,
+        credentials=credentials,
+        browser_client_id=BROWSER_CLIENT,
+    )
+    with pytest.raises(ValueError, match="reuse"):
+        create_gateway(CONFIG, verifier=Verifier(), owner_enrollment=api)
+    different = GatewayConfig(
+        resource_url="https://foreign.example.com/mcp",
+        issuer_url=CONFIG.issuer_url,
+        jwks_url=CONFIG.jwks_url,
+    )
+    with pytest.raises(ValueError, match="reuse"):
+        create_gateway(different, verifier=verifier, owner_enrollment=api)

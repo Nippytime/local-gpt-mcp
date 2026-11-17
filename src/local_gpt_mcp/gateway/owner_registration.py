@@ -78,6 +78,11 @@ class OwnerEnrollmentAPI:
         self._lock = threading.RLock()
         self._pending: dict[str, _Pending] = {}
 
+    def require_gateway_binding(self, config: GatewayConfig, verifier: TokenVerifier) -> None:
+        """Prevent accidental installation with weaker identity settings."""
+        if self._resource != config.resource_url or self._verifier is not verifier:
+            raise ValueError("Owner enrollment must reuse the gateway's verified OAuth authority")
+
     async def _identity(self, request: Request) -> tuple[str, str, bytes]:
         if (
             request.headers.get("host", "").casefold() != self._host
@@ -93,6 +98,7 @@ class OwnerEnrollmentAPI:
         if (
             access is None
             or access.resource != self._resource
+            or not isinstance(access.subject, str)
             or not valid_identifier(access.subject)
             or access.client_id != self._client_id
             or ENROLL_SCOPE not in access.scopes

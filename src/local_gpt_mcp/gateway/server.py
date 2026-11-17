@@ -104,6 +104,7 @@ def create_gateway(
     if relay is not None:
         install_agent_routes(app, relay, token_verifier, config.resource_url)
     if owner_enrollment is not None:
+        owner_enrollment.require_gateway_binding(config, token_verifier)
         install_owner_enrollment_routes(app, owner_enrollment)
     return app
 
