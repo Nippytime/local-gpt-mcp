@@ -70,7 +70,7 @@ async def test_install_is_explicit_and_same_origin_with_strict_browser_headers()
         script = (await client.get("/owner/approve.js")).text
         assert "navigator.credentials.get" in script
         assert '"code_challenge_method", "S256"' in script
-        assert "userVerification: \"required\"" in script
+        assert 'userVerification: "required"' in script
         assert "localStorage" not in script
         assert "innerHTML" not in script
 
@@ -86,9 +86,7 @@ async def test_portal_is_absent_without_explicit_installation() -> None:
 
 def test_owner_portal_rejects_unpinned_issuer_and_missing_public_client() -> None:
     with pytest.raises(ValueError):
-        OwnerPortalConfig(
-            "", PORTAL.authorization_endpoint, PORTAL.token_endpoint
-        ).validate(CONFIG)
+        OwnerPortalConfig("", PORTAL.authorization_endpoint, PORTAL.token_endpoint).validate(CONFIG)
     for endpoint in (
         "http://login.example.com/oauth/authorize",
         "https://evil.example.com/oauth/authorize",
