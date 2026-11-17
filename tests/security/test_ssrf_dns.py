@@ -1,4 +1,4 @@
-"""DNS resolution must not point an approved public host into private services."""
+"""Exact connection-time DNS selection rejects unsafe or mixed responses."""
 
 from __future__ import annotations
 
@@ -6,7 +6,8 @@ import socket
 
 import pytest
 
-from local_gpt_mcp.browser.playwright_driver import _public_dns
+from local_gpt_mcp.browser.controller import BrowserDenied
+from local_gpt_mcp.browser.safe_fetch import public_addresses
 
 
 @pytest.mark.parametrize(
@@ -27,10 +28,17 @@ def test_public_dns_rejects_all_non_global_addresses(
     monkeypatch: pytest.MonkeyPatch, addresses: list[str], expected: bool
 ) -> None:
     def resolve(*args: object, **kwargs: object) -> list[tuple[int, int, int, str, tuple[str, int]]]:
-        return [(0, 0, 0, "", (address, 443)) for address in addresses]
+        return [
+            (socket.AF_INET6 if ":" in address else socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 443))
+            for address in addresses
+        ]
 
     monkeypatch.setattr(socket, "getaddrinfo", resolve)
-    assert _public_dns("approved.example.com") is expected
+    if expected:
+        assert len(public_addresses("approved.example.com", 443)) == len(addresses)
+    else:
+        with pytest.raises(BrowserDenied):
+            public_addresses("approved.example.com", 443)
 
 
 def test_unavailable_dns_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -38,4 +46,5 @@ def test_unavailable_dns_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         raise socket.gaierror("resolution failed")
 
     monkeypatch.setattr(socket, "getaddrinfo", fail)
-    assert not _public_dns("approved.example.com")
+    with pytest.raises(BrowserDenied):
+        public_addresses("approved.example.com", 443)
