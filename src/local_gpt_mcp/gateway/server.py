@@ -161,7 +161,7 @@ def create_gateway(
             token_verifier,
             config.resource_url,
             actions=actions,
-            owner_client_id=portal.client_id if portal is not None else None,
+            owner_client_id=portal.client_id if portal is not None else owner_client_id,
             stop_owner=relay.halt_owner if actions is not None and relay is not None else None,
         )
     if portal is not None:
