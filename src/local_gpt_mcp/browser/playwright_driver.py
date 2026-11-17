@@ -22,6 +22,16 @@ from local_gpt_mcp.browser.safe_fetch import fetch_public_https
 
 SENSITIVE = re.compile(r"password|passcode|otp|one.time|credit|card|cvv|cvc|ssn|secret|token|api.key", re.I)
 
+WEBRTC_DENIAL_SCRIPT = """
+for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection"]) {
+    Object.defineProperty(globalThis, name, {
+        value: undefined,
+        writable: false,
+        configurable: false,
+    });
+}
+"""
+
 
 class PlaywrightTab:
     """Only public, visible text and non-sensitive controls are exposed."""
@@ -124,7 +134,10 @@ class IsolatedBrowserSession:
     async def __aenter__(self) -> Self:
         self._playwright = await async_playwright().start()
         try:
-            self._browser = await self._playwright.chromium.launch(headless=self._headless)
+            self._browser = await self._playwright.chromium.launch(
+                headless=self._headless,
+                args=["--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
+            )
             self.context = await self._browser.new_context(
                 accept_downloads=False,
                 service_workers="block",
@@ -132,6 +145,7 @@ class IsolatedBrowserSession:
                 ignore_https_errors=False,
                 java_script_enabled=True,
             )
+            await self.context.add_init_script(script=WEBRTC_DENIAL_SCRIPT)
             await self.context.route("**/*", self._network)
             await self.context.route_web_socket("**/*", self._websocket)
             page = await self.context.new_page()
