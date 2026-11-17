@@ -22,6 +22,7 @@ from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.approval_api import install_approval_routes
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.owner_portal import OwnerPortalConfig, install_owner_portal
+from local_gpt_mcp.gateway.owner_registration import OwnerEnrollmentAPI, install_owner_enrollment_routes
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger
@@ -110,6 +111,7 @@ def create_gateway(
     approvals: OwnerApprovalQueue | None = None,
     actions: RemoteActionRelay | None = None,
     portal: OwnerPortalConfig | None = None,
+    owner_enrollment: OwnerEnrollmentAPI | None = None,
 ) -> Starlette:
     """Expose the authenticated MCP server plus optional outbound-only agent APIs."""
     token_verifier = verifier if verifier is not None else JWTVerifier(config)
@@ -146,6 +148,9 @@ def create_gateway(
         )
     if portal is not None:
         install_owner_portal(app, config, portal)
+    if owner_enrollment is not None:
+        owner_enrollment.require_gateway_binding(config, token_verifier)
+        install_owner_enrollment_routes(app, owner_enrollment)
     return app
 
 
