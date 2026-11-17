@@ -65,7 +65,8 @@
       ],
       [
         "@python",
-        "ci/build_manifest.py"
+        "-m",
+        "ci.build_manifest"
       ]
     ],
     "audit": [
