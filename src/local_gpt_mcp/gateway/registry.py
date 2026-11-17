@@ -59,13 +59,13 @@ class DeviceRecord:
 
 
 class ReadTransport(Protocol):
-    async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]: ...
+    async def read(
+        self, owner: str, device_id: str, request: ReadRequest
+    ) -> Mapping[str, str | int | bool]: ...
 
 
 class DenyAllTransport:
-    async def read(
-        self, owner: str, device_id: str, request: ReadRequest
-    ) -> Mapping[str, str | int | bool]:
+    async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]:
         raise DeviceUnavailable("A verified outbound agent is not connected")
 
 
