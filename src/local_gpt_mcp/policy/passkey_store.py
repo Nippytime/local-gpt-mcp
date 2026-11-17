@@ -79,7 +79,7 @@ class MemoryPasskeys:
             self._entries[credential_id] = PasskeyCredential(owner, current.key, sign_count)
 
 
-def _trusted[_Result](operation: Callable[[], _Result]) -> _Result:
+def _trusted[Result](operation: Callable[[], Result]) -> Result:
     try:
         return operation()
     except CredentialStoreDenied as error:
