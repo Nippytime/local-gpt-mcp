@@ -59,9 +59,7 @@ class DeviceRecord:
 
 
 class ReadTransport(Protocol):
-    async def read(
-        self, owner: str, device_id: str, request: ReadRequest
-    ) -> Mapping[str, str | int | bool]: ...
+    async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]: ...
 
 
 class DenyAllTransport:
@@ -124,9 +122,7 @@ class DeviceDirectory:
             device = self._owned(owner, device_id)
             return {"device_id": device.device_id, "label": device.label, "online": device.online}
 
-    async def read(
-        self, owner: str, device_id: str, request: ReadRequest
-    ) -> dict[str, str | int | bool]:
+    async def read(self, owner: str, device_id: str, request: ReadRequest) -> dict[str, str | int | bool]:
         with self._lock:
             if not self._owned(owner, device_id).online:
                 raise DeviceUnavailable("Device unavailable")
@@ -139,9 +135,7 @@ class DeviceDirectory:
         if not isinstance(result, Mapping) or len(result) > 32:
             raise DeviceUnavailable("Untrusted device response")
         if any(
-            not isinstance(key, str)
-            or not 0 < len(key) <= 80
-            or not isinstance(value, str | int | bool)
+            not isinstance(key, str) or not 0 < len(key) <= 80 or not isinstance(value, str | int | bool)
             for key, value in result.items()
         ):
             raise DeviceUnavailable("Untrusted device response")

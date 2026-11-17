@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import httpx
+import httpx2 as httpx
 import pytest
 from mcp import Client
 from mcp.server.auth.provider import AccessToken

@@ -13,9 +13,7 @@ class FakeAgent:
     def __init__(self) -> None:
         self.requests: list[tuple[str, str, ReadRequest]] = []
 
-    async def read(
-        self, owner: str, device_id: str, request: ReadRequest
-    ) -> Mapping[str, str | int | bool]:
+    async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]:
         self.requests.append((owner, device_id, request))
         return {"title": "Approved window"}
 
@@ -60,9 +58,9 @@ async def test_agent_dispatch_is_owner_bound_and_read_only() -> None:
     directory.set_online_trusted("alice", "pc-a", True)
     with pytest.raises(DeviceUnavailable):
         await directory.read("bob", "pc-a", ReadRequest("desktop_window_info", "window:41"))
-    assert await directory.read(
-        "alice", "pc-a", ReadRequest("desktop_window_info", "window:41")
-    ) == {"title": "Approved window"}
+    assert await directory.read("alice", "pc-a", ReadRequest("desktop_window_info", "window:41")) == {
+        "title": "Approved window"
+    }
     assert agent.requests == [("alice", "pc-a", ReadRequest("desktop_window_info", "window:41"))]
 
 
