@@ -31,7 +31,8 @@ def enrolled(guard: SQLiteStopLedger) -> tuple[AgentRelay, DeviceIdentity]:
     identity = DeviceIdentity.generate(device_id)
     relay.enroll(code, device_id, identity.public_key)
     signed = sign_request(identity.private_key, device_id, "/api/agent/poll", b"{}")
-    assert relay.authenticate(device_id, "/api/agent/poll", b"{}", signed) == "alice"
+    headers = {name.lower(): value for name, value in signed.items()}
+    assert relay.authenticate(device_id, "/api/agent/poll", b"{}", headers) == "alice"
     return relay, identity
 
 
@@ -41,14 +42,19 @@ async def test_revoked_device_cannot_reconnect_poll_or_read(tmp_path: Path) -> N
     relay, identity = enrolled(guard)
     device_id = identity.device_id
     assert relay.connected("alice", device_id)
-    SQLiteStopLedger(guard._path).revoke_device("alice", device_id)
+    SQLiteStopLedger(tmp_path / "private" / "stop.sqlite").revoke_device("alice", device_id)
     assert not relay.connected("alice", device_id)
     with pytest.raises(StopDenied):
         relay.authenticate(
             device_id,
             "/api/agent/poll",
             b"{}",
-            sign_request(identity.private_key, device_id, "/api/agent/poll", b"{}"),
+            {
+                name.lower(): value
+                for name, value in sign_request(
+                    identity.private_key, device_id, "/api/agent/poll", b"{}"
+                ).items()
+            },
         )
     with pytest.raises(StopDenied):
         relay.poll("alice", device_id)
@@ -72,7 +78,7 @@ async def test_owner_halt_cancels_queued_read_and_blocks_reenrollment(tmp_path: 
     with pytest.raises(StopDenied):
         relay.issue_code("alice", "New PC")
     with pytest.raises(StopDenied):
-        SQLiteStopLedger(guard._path).require_allowed("alice")
+        SQLiteStopLedger(tmp_path / "private" / "stop.sqlite").require_allowed("alice")
     with pytest.raises(StopDenied):
         relay.reply("alice", identity.device_id, "missing", {"ok": True})
 
