@@ -57,8 +57,9 @@ def test_atomic_counter_replay_and_downgrade_after_restart(tmp_path: Path) -> No
         with pytest.raises(RemoteApprovalDenied, match="counter"):
             restarted.advance("alice", CREDENTIAL_ID, count)
     restarted.advance("alice", CREDENTIAL_ID, 11)
-    assert store.get(CREDENTIAL_ID) is not None
-    assert store.get(CREDENTIAL_ID).sign_count == 11  # type: ignore[union-attr]
+    stored = store.get(CREDENTIAL_ID)
+    assert stored is not None
+    assert stored.sign_count == 11
 
 
 def test_owner_presence_uses_durable_passkey_and_revocation(tmp_path: Path) -> None:
@@ -83,8 +84,12 @@ def test_owner_presence_uses_durable_passkey_and_revocation(tmp_path: Path) -> N
     # An outstanding challenge must also be invalid after key revocation.
     with pytest.raises(RemoteApprovalDenied):
         presence.finish(
-            "alice", CREDENTIAL_ID, challenge.challenge,
-            client_data=b"{}", authenticator_data=b"0" * 37, signature=b"x",
+            "alice",
+            CREDENTIAL_ID,
+            challenge.challenge,
+            client_data=b"{}",
+            authenticator_data=b"0" * 37,
+            signature=b"x",
         )
 
 

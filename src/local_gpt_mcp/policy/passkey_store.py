@@ -122,8 +122,7 @@ class SQLitePasskeys:
         try:
             with closing(self._connect()) as db, db:
                 db.execute(
-                    "INSERT INTO passkeys (credential_id, owner, public_key, sign_count) "
-                    "VALUES (?, ?, ?, 0)",
+                    "INSERT INTO passkeys (credential_id, owner, public_key, sign_count) VALUES (?, ?, ?, 0)",
                     (credential_id, owner, encoded),
                 )
         except sqlite3.IntegrityError as error:
