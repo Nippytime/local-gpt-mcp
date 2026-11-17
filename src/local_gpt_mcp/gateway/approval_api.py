@@ -39,10 +39,9 @@ def install_approval_routes(
     ) -> Callable[[Request], Awaitable[JSONResponse]]:
         async def call(request: Request) -> JSONResponse:
             try:
-                if (
-                    request.headers.get("host", "").casefold() != host
-                    or request.headers.get("origin") not in (None, origin)
-                ):
+                if request.headers.get("host", "").casefold() != host or request.headers.get(
+                    "origin"
+                ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted owner approval origin")
                 response = await handler(request)
             except (RemoteApprovalDenied, DeviceAuthenticationError, ValueError, TypeError):
@@ -87,11 +86,7 @@ def install_approval_routes(
             data.get("credential_id"),
             data.get("challenge"),
         )
-        if not (
-            isinstance(job_id, str)
-            and isinstance(credential_id, str)
-            and isinstance(challenge, str)
-        ):
+        if not (isinstance(job_id, str) and isinstance(credential_id, str) and isinstance(challenge, str)):
             raise RemoteApprovalDenied("Malformed owner assertion")
         approvals.finish(
             owner,

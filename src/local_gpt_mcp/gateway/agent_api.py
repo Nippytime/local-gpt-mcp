@@ -24,9 +24,7 @@ from local_gpt_mcp.gateway.registry import DeviceUnavailable
 OWNER_SCOPE = "devices:manage"
 
 
-async def _owner(
-    request: Request, verify: TokenVerifier, resource: str, *, scope: str = OWNER_SCOPE
-) -> str:
+async def _owner(request: Request, verify: TokenVerifier, resource: str, *, scope: str = OWNER_SCOPE) -> str:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token or len(token) > 8192:

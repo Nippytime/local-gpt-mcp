@@ -33,8 +33,11 @@ JOB_ID = "a" * 32
 
 class Verifier:
     async def verify_token(self, token: str) -> AccessToken | None:
-        identities = {"alice-owner": ("alice", ["approvals:manage"]), "bob-owner": ("bob", ["approvals:manage"]),
-                      "model": ("alice", ["devices:read"])}
+        identities = {
+            "alice-owner": ("alice", ["approvals:manage"]),
+            "bob-owner": ("bob", ["approvals:manage"]),
+            "model": ("alice", ["devices:read"]),
+        }
         identity = identities.get(token)
         if identity is None:
             return None
@@ -66,8 +69,9 @@ def _signed(key: ec.EllipticCurvePrivateKey, challenge: str) -> dict[str, str]:
     }
 
 
-def _fixture() -> tuple[Starlette, OwnerApprovalQueue, ScopedAction, ec.EllipticCurvePrivateKey,
-                        ed25519.Ed25519PrivateKey]:
+def _fixture() -> tuple[
+    Starlette, OwnerApprovalQueue, ScopedAction, ec.EllipticCurvePrivateKey, ed25519.Ed25519PrivateKey
+]:
     clock = lambda: 2_000_000_000.0
     signer = ed25519.Ed25519PrivateKey.generate()
     key = ec.generate_private_key(ec.SECP256R1())
@@ -101,7 +105,9 @@ async def test_owner_passkey_confirm_is_one_job_and_device_only(tmp_path: Path) 
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:
         assert (await client.get("/api/owner/approvals")).status_code == 403
-        assert (await client.get("/api/owner/approvals", headers={"Authorization": "Bearer model"})).status_code == 403
+        assert (
+            await client.get("/api/owner/approvals", headers={"Authorization": "Bearer model"})
+        ).status_code == 403
         bob = await client.get("/api/owner/approvals", headers={"Authorization": "Bearer bob-owner"})
         assert bob.json() == {"approvals": []}
         denied = await client.post(
@@ -118,12 +124,18 @@ async def test_owner_passkey_confirm_is_one_job_and_device_only(tmp_path: Path) 
         assert "receipt" not in listing.text
         begin = await client.post(
             "/api/owner/approvals/begin",
-            headers=alice, json={"job_id": JOB_ID, "credential_id": CREDENTIAL},
+            headers=alice,
+            json={"job_id": JOB_ID, "credential_id": CREDENTIAL},
         )
         assert begin.status_code == 200
         challenge = begin.json()["challenge"]
         assert challenge
-        data = {"job_id": JOB_ID, "credential_id": CREDENTIAL, "challenge": challenge, **_signed(key, challenge)}
+        data = {
+            "job_id": JOB_ID,
+            "credential_id": CREDENTIAL,
+            "challenge": challenge,
+            **_signed(key, challenge),
+        }
         approved = await client.post("/api/owner/approvals/finish", headers=alice, json=data)
         assert approved.status_code == 200
         assert approved.json() == {"approved": True}
@@ -135,8 +147,10 @@ async def test_owner_passkey_confirm_is_one_job_and_device_only(tmp_path: Path) 
             approvals.take_trusted("alice", "pc-bob", action)
         receipt = approvals.take_trusted("alice", action.caller.device_id, action)
         verifier = RemoteApprovalVerifier(
-            signer.public_key(), SQLiteConsumptionStore(tmp_path / "spent.sqlite"),
-            stopped=lambda: False, clock=lambda: 2_000_000_000.0,
+            signer.public_key(),
+            SQLiteConsumptionStore(tmp_path / "spent.sqlite"),
+            stopped=lambda: False,
+            clock=lambda: 2_000_000_000.0,
         )
         verifier.verify(receipt, action)
         with pytest.raises(RemoteApprovalDenied):
@@ -171,16 +185,20 @@ async def test_model_cannot_enqueue_forge_or_approve_its_own_job() -> None:
         )
         challenge = begin.json()["challenge"]
         forged = {
-            "job_id": JOB_ID, "credential_id": CREDENTIAL, "challenge": challenge,
-            "client_data": "AAAA", "authenticator_data": "BBBB", "signature": "CCCC",
+            "job_id": JOB_ID,
+            "credential_id": CREDENTIAL,
+            "challenge": challenge,
+            "client_data": "AAAA",
+            "authenticator_data": "BBBB",
+            "signature": "CCCC",
         }
-        assert (await client.post("/api/owner/approvals/finish", json=forged, headers=headers)).status_code == 403
+        assert (
+            await client.post("/api/owner/approvals/finish", json=forged, headers=headers)
+        ).status_code == 403
         with pytest.raises(RemoteApprovalDenied):
             approvals.take_trusted("alice", action.caller.device_id, action)
         assert (
-            await client.post(
-                "/api/owner/approvals/halt", headers={"Authorization": "Bearer model"}
-            )
+            await client.post("/api/owner/approvals/halt", headers={"Authorization": "Bearer model"})
         ).status_code == 403
         assert (await client.post("/api/owner/approvals/halt", headers=headers)).status_code == 200
         with pytest.raises(RemoteApprovalDenied):
