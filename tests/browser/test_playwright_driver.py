@@ -9,7 +9,11 @@ import pytest
 from playwright.async_api import Page
 
 from local_gpt_mcp.browser import BrowserController, BrowserDenied
-from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession, PlaywrightTab
+from local_gpt_mcp.browser.playwright_driver import (
+    WEBRTC_DENIAL_SCRIPT,
+    IsolatedBrowserSession,
+    PlaywrightTab,
+)
 from local_gpt_mcp.pairing import SessionBroker
 from local_gpt_mcp.policy import PolicyAuthority
 
@@ -161,6 +165,11 @@ class FakeContext:
         self.closed = False
         self.config: dict[str, Any] = {}
         self.hooks: list[str] = []
+        self.init_scripts: list[str] = []
+
+    async def add_init_script(self, *, script: str) -> None:
+        self.hooks.append("init_script")
+        self.init_scripts.append(script)
 
     async def route(self, pattern: str, callback: Any) -> None:
         self.hooks.append("route")
@@ -197,9 +206,11 @@ class FakePlaywright:
         self.browser = browser
         self.chromium = SimpleNamespace(launch=self.launch)
         self.stopped = False
+        self.launch_args: list[str] = []
 
-    async def launch(self, *, headless: bool) -> FakeBrowser:
+    async def launch(self, *, headless: bool, args: list[str]) -> FakeBrowser:
         assert headless
+        self.launch_args = args
         return self.browser
 
     async def stop(self) -> None:
@@ -229,5 +240,7 @@ async def test_isolated_context_lifecycle_disables_downloads_and_service_workers
         assert context.config["accept_downloads"] is False
         assert context.config["service_workers"] == "block"
         assert context.config["permissions"] == []
-        assert context.hooks == ["route", "websocket", "page", "page"]
+        assert context.hooks == ["init_script", "route", "websocket", "page", "page"]
+        assert context.init_scripts == [WEBRTC_DENIAL_SCRIPT]
+        assert fake.launch_args == ["--force-webrtc-ip-handling-policy=disable_non_proxied_udp"]
     assert browser.closed and context.closed and fake.stopped
