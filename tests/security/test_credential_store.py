@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from local_gpt_mcp.policy.credential_store import CredentialStoreDenied, SQLiteCredentialStore
 from local_gpt_mcp.policy.registration import OperatorAuthorizedRegistration
-from tests.security.test_registration import ORIGIN, fixture
+from security.test_registration import ORIGIN, fixture
 
 CREDENTIAL_ID = "registered-credential-00000000000001"
 
