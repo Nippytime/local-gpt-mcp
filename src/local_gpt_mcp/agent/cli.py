@@ -79,7 +79,7 @@ def main() -> None:
                 window_handle=options.window_handle,
             )
         )
-    except (RuntimeError, ValueError, httpx.HTTPError) as error:
+    except (RuntimeError, ValueError, PermissionError, httpx.HTTPError) as error:
         parser.exit(1, f"Outbound agent unavailable: {type(error).__name__}\n")
 
 

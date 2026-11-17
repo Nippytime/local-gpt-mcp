@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import sys
 from pathlib import Path
 
 import httpx2 as httpx
@@ -18,7 +19,7 @@ from local_gpt_mcp.agent.identity import DeviceIdentity
 def test_local_key_missing_linked_invalid_or_valid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     key_path = tmp_path / local_setup.USER_KEY_NAME
     monkeypatch.setattr(local_setup, "credential_file", lambda: tmp_path / "device-identity.json")
-    monkeypatch.setattr(local_setup.sys, "platform", "win32")
+    monkeypatch.setattr(sys, "platform", "win32")
     with pytest.raises(RuntimeError, match="pinned"):
         local_setup.load_local_issuer()
     key_path.write_text("not-a-real-key", encoding="ascii")
@@ -78,7 +79,7 @@ async def test_explicit_opt_in_routes_to_local_setup_only(
 
 
 def test_local_setup_never_enables_on_non_windows() -> None:
-    if local_setup.sys.platform == "win32":
+    if sys.platform == "win32":
         pytest.skip("Covered on native Windows integration gate")
     with pytest.raises(RuntimeError, match="Interactive Windows"):
         asyncio.run(
