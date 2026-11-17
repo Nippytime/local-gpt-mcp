@@ -234,24 +234,27 @@ def test_identity_is_bound_to_same_native_process(monkeypatch: pytest.MonkeyPatc
         backend._guard(41)
 
 
-@pytest.mark.parametrize("key", [False, True])
-def test_input_release_on_stop(monkeypatch: pytest.MonkeyPatch, key: bool) -> None:
+@pytest.mark.parametrize("key", [False, True, None])
+def test_input_release_on_stop(monkeypatch: pytest.MonkeyPatch, key: bool | None) -> None:
     backend = fake_native(monkeypatch)
     backend.trust_local([41])
     sent: list[int] = []
-    active = True
 
     def send(kind: int, *, flags: int, value: int = 0) -> None:
-        nonlocal active
         sent.append(flags)
-        if len(sent) == 1:
-            active = False
 
     monkeypatch.setattr(backend, "_send", send)
-    monkeypatch.setattr(backend, "desktop_ready", lambda: active)
+    monkeypatch.setattr(backend, "desktop_ready", lambda: not sent)
     with pytest.raises(DesktopDenied, match="locked"):
-        if key:
+        if key is None:
+            backend.type_text(41, "A")
+        elif key:
             backend.press_key(41, "tab")
         else:
             backend.click(41, 100, 100)
-    assert sent == ([0, KEYEVENTF_KEYUP] if key else [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP])
+    expected = {
+        None: [KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP],
+        True: [0, KEYEVENTF_KEYUP],
+        False: [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP],
+    }
+    assert sent == expected[key]
