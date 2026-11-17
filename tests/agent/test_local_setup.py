@@ -82,7 +82,7 @@ async def test_explicit_opt_in_routes_to_local_setup_only(
 def test_local_setup_never_enables_on_non_windows() -> None:
     if local_setup.sys.platform == "win32":
         pytest.skip("Covered on native Windows integration gate")
-    with pytest.raises(RuntimeError, match="interactive Windows"):
+    with pytest.raises(RuntimeError, match="Interactive Windows"):
         asyncio.run(
             local_setup.run_locally_approved(
                 "https://gateway.example.com",
