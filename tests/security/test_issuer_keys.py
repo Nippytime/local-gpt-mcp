@@ -7,12 +7,12 @@ import stat
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
 )
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from local_gpt_mcp.agent.identity import public_key_text
 from local_gpt_mcp.gateway.issuer_keys import load_issuer_key, provision_issuer_key
