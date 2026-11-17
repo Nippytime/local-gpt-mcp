@@ -10,10 +10,18 @@ import httpx2 as httpx
 
 from local_gpt_mcp.agent.credentials import credential_file, load_identity, save_identity
 from local_gpt_mcp.agent.identity import DeviceIdentity
+from local_gpt_mcp.agent.local_setup import run_locally_approved
 from local_gpt_mcp.agent.outbound import OutboundAgent
 
 
-async def operate(gateway: str, *, pair: bool) -> None:
+async def operate(
+    gateway: str,
+    *,
+    pair: bool,
+    approved_input: bool = False,
+    owner_id: str | None = None,
+    window_handle: int | None = None,
+) -> None:
     async with httpx.AsyncClient(trust_env=False, follow_redirects=False) as client:
         if pair:
             if credential_file().exists():
@@ -27,6 +35,13 @@ async def operate(gateway: str, *, pair: bool) -> None:
             return
 
         identity = load_identity()
+        if approved_input:
+            if owner_id is None or window_handle is None:
+                raise ValueError("Approved input requires a local owner ID and selected window")
+            await run_locally_approved(
+                gateway, identity, client, owner_id=owner_id, window_handle=window_handle
+            )
+            return
         agent = OutboundAgent(identity, gateway, client=client)
         stop = asyncio.Event()
         print("Agent running outbound-only; Ctrl+C stops it. Reads deny until locally authorized.")
@@ -42,10 +57,29 @@ def main() -> None:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--pair", action="store_true", help="Pair this PC with a one-time owner code")
     group.add_argument("--run", action="store_true", help="Connect outbound, deny remote reads by default")
+    group.add_argument(
+        "--run-approved-input",
+        action="store_true",
+        help="Start visible local safety UI and explicitly authorize a selected window",
+    )
+    parser.add_argument("--owner-id", help="Exact owner identity verified by the gateway issuer")
+    parser.add_argument("--window-handle", type=int, help="Native Win32 window selected at this PC")
     options = parser.parse_args()
+    if options.run_approved_input and (options.owner_id is None or options.window_handle is None):
+        parser.error("--run-approved-input requires --owner-id and --window-handle")
+    if not options.run_approved_input and (options.owner_id is not None or options.window_handle is not None):
+        parser.error("--owner-id and --window-handle are only valid with --run-approved-input")
     try:
-        asyncio.run(operate(options.gateway, pair=options.pair))
-    except (RuntimeError, ValueError, httpx.HTTPError) as error:
+        asyncio.run(
+            operate(
+                options.gateway,
+                pair=options.pair,
+                approved_input=options.run_approved_input,
+                owner_id=options.owner_id,
+                window_handle=options.window_handle,
+            )
+        )
+    except (RuntimeError, ValueError, PermissionError, httpx.HTTPError) as error:
         parser.exit(1, f"Outbound agent unavailable: {type(error).__name__}\n")
 
 
