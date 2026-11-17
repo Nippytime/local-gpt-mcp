@@ -41,3 +41,29 @@ The fixed, owner-only WebAuthn begin/finish API from Issue #43 now has a **separ
 The page uses OAuth authorization-code + PKCE S256 for an independently configured client, one-time state validation and cleanup, and an in-memory access token only. The operator separately issues the owner-scoped 180-second permit in a trusted local terminal. On the owner’s **own browser**, after successful OAuth sign-in, the owner enters the permit into a password field, which is cleared before and after submitting. The browser calls `/api/owner/passkey/begin`, invokes native `PublicKeyCredential.parseCreationOptionsFromJSON` and `navigator.credentials.create`, and sends `credential.toJSON()` to `/api/owner/passkey/finish`. No model client can issue permits or access the `owner:enroll` scope without independent OAuth authorization. No token/permit is placed in URLs, persistent storage or logs. A modern browser with these WebAuthn APIs is required; unsupported clients fail rather than downgrading to insecure registration.
 
 The configured IdP must correctly register `https://<gateway-host>/owner/enroll` as an exact redirect URI and support its own public OAuth PKCE client and CORS-protected token exchange. Actual public IdP, deployed TLS proxy, browser authenticator, second-device owner approval, native Windows STOP and distant ChatGPT web-to-PC acceptance **have not yet been tested**. Keep Issue #23, #24, #10 and all HIGH release blockers OPEN, and keep remote actions disabled until independent physical acceptance.
+
+## Explicit hosted owner first-passkey enrollment (Issue #49)
+
+**Disabled unless enabled by the operator.** Existing hosted `create_from_env` exposes no passkey registration endpoint or `/owner/enroll` page by default. A trusted, **single-worker POSIX** gateway pilot can explicitly install the already-verified first-passkey API and owner PKCE browser page only after provisioning both SQLite stores once in the same private (mode 0700, service-owned) directory:
+
+```sh
+python -m local_gpt_mcp.policy.bootstrap provision /private/owner-mcp/permits.sqlite
+# Provision the separate passkey store once using SQLiteCredentialStore.provision()
+# as described in docs/PASSKEY_REGISTRATION.md.
+```
+
+Configure, in addition to the existing public resource, issuer and JWKS HTTPS settings:
+
+```sh
+LOCAL_MCP_OWNER_ENROLLMENT=1
+LOCAL_MCP_OWNER_SINGLE_PROCESS_ACK=1
+LOCAL_MCP_OWNER_CLIENT_ID=separate-owner-browser-client
+LOCAL_MCP_OWNER_AUTHORIZE_URL=https://idp.example.com/authorize
+LOCAL_MCP_OWNER_TOKEN_URL=https://idp.example.com/token
+LOCAL_MCP_OWNER_PERMIT_DB=/private/owner-mcp/permits.sqlite
+LOCAL_MCP_PASSKEY_DB=/private/owner-mcp/passkeys.sqlite
+```
+
+The identity provider must separately register that browser client as an OAuth public PKCE client with **only** independently granted `owner:enroll`, the exact resource audience and a redirect URI of `https://<gateway-host>/owner/enroll`. Use URLs on the configured HTTPS issuer; mismatched, missing or malformed paths deny startup. At runtime a trusted operator verifies the account separately, runs the **local terminal-only** `python -m local_gpt_mcp.policy.bootstrap issue ... <owner-sub>` command, then independently gives the single-use 180-second code to that owner. No HTTP or MCP tool can issue or renew it. All database files must exist and retain private ownership/mode; startup never creates, resets or repairs them.
+
+The in-memory WebAuthn ceremony is limited to 60 seconds and one gateway process; a restart loses uncompleted ceremonies. `LOCAL_MCP_OWNER_SINGLE_PROCESS_ACK=1` explicitly acknowledges this pilot limitation. This option does not automatically enroll a PC, authorize an action, or enable Windows input. It **does not prove** live IdP compatibility, remote owner physical user verification, resilient multi-worker coordination, native STOP/locked/UAC behavior, or actual ChatGPT-web-to-PC E2E. Leave #23/#24/#10 and all three HIGH production blockers OPEN.
