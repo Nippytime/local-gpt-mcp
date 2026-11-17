@@ -44,3 +44,10 @@ The `OwnerApprovalQueue` allows only **trusted, in-process relay code** to enque
 | `POST /api/owner/approvals/halt` | `approvals:manage` | Cancel future approvals for this process/owner (not yet the native STOP) |
 
 Host/Origin checks, bounded request bodies, `Cache-Control: no-store`, and denial when the passkey or job is absent are required. Only the trusted device delivery seam `take_trusted` can retrieve a proof after verified owner presence; it is **not** an HTTP/MCP endpoint and is not yet integrated into signed agent polls. No public HTTP write/approval app is deployed, and no user should treat this as a production approval portal. Remaining work: production passkey enrollment and storage, OAuth PKCE browser integration, per-job real device/action creation, native STOP and execution-time verification on Windows, actual remote phone test and three release blockers.
+
+
+### Signed action transport (work in progress)
+
+The opt-in `RemoteActionRelay` now binds a server-trusted pending action to a randomly generated job ID, an existing authenticated device heartbeat, owner/device/session, a strict `window.click` argument allowlist and a separate owner WebAuthn approval queue. **No action is sent on a signed device poll until passkey approval succeeds.** Once approved, a receipt is removed from the owner queue and delivered **once** to the authenticated device at `POST /api/agent/actions/poll`; a matching bounded device-key-signed `POST /api/agent/actions/result` is the only accepted reply. Missing approval, foreign identity, expired job, offline device, revocation or owner halt deny. The job expires after 60 seconds; an uncertain remote input must never be retried automatically.
+
+This is a **transport-only** integration. The default `create_from_env` does NOT install the action endpoints, does NOT register an MCP write tool, and existing outbound agents do NOT execute actions. An agent-side receipt/nonce verifier with locally paired authority and native Windows safety checks remains mandatory before enabling any remote execution.

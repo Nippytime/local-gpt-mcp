@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from local_gpt_mcp.agent.identity import MAX_BODY, DeviceAuthenticationError
+from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
 
@@ -59,7 +60,14 @@ async def _json(request: Request, body: bytes | None = None) -> dict[str, Any]:
     return data
 
 
-def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerifier, resource: str) -> None:
+def install_agent_routes(
+    app: Starlette,
+    relay: AgentRelay,
+    verifier: TokenVerifier,
+    resource: str,
+    *,
+    actions: RemoteActionRelay | None = None,
+) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
     public = urlsplit(resource)
     host = public.netloc.casefold()
@@ -140,6 +148,26 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
         relay.reply(owner, device_id, job_id, output)
         return JSONResponse({"accepted": True})
 
+    @safe
+    async def action_poll(request: Request) -> JSONResponse:
+        if actions is None:
+            raise DeviceUnavailable("Remote actions not configured")
+        owner, device_id, data = await authenticated_agent(request)
+        if data:
+            raise DeviceAuthenticationError("Poll payload must be empty")
+        return JSONResponse(actions.poll_trusted(owner, device_id))
+
+    @safe
+    async def action_result(request: Request) -> JSONResponse:
+        if actions is None:
+            raise DeviceUnavailable("Remote actions not configured")
+        owner, device_id, data = await authenticated_agent(request)
+        job_id, result = data.get("job_id"), data.get("result")
+        if not isinstance(job_id, str) or not isinstance(result, dict):
+            raise DeviceAuthenticationError("Invalid bounded action result")
+        actions.reply_trusted(owner, device_id, job_id, result)
+        return JSONResponse({"accepted": True})
+
     # Before generic MCP transport routes: never allow a catch-all mount
     # to shadow authenticated enrollment or signed agent endpoints.
     app.router.routes[:0] = [
@@ -149,3 +177,8 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
         Route("/api/agent/poll", agent_poll, methods=["POST"]),
         Route("/api/agent/result", agent_result, methods=["POST"]),
     ]
+    if actions is not None:
+        app.router.routes[:0] = [
+            Route("/api/agent/actions/poll", action_poll, methods=["POST"]),
+            Route("/api/agent/actions/result", action_result, methods=["POST"]),
+        ]

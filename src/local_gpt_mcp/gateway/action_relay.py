@@ -97,7 +97,10 @@ class RemoteActionRelay:
             self.approvals.offer_trusted(action, operation=operation, parameters=parameters)
             self._jobs[job_id] = job
         try:
-            return await asyncio.wait_for(future, timeout=ACTION_SECONDS)
+            result = await asyncio.wait_for(future, timeout=ACTION_SECONDS)
+            if "error" in result:
+                raise DeviceUnavailable("The local PC denied or could not confirm remote input")
+            return result
         except TimeoutError:
             raise DeviceUnavailable("Owner approval or device response expired") from None
         finally:
