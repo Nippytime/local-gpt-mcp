@@ -11,7 +11,11 @@ from workflow.check_release_blockers import MANIFEST, validate
 
 def test_current_manifest_prevents_premature_production_release() -> None:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    assert validate(data) == ["DNS_REBINDING_TOCTOU", "PHYSICAL_WINDOWS_ACCEPTANCE"]
+    assert validate(data) == [
+        "DNS_REBINDING_TOCTOU",
+        "PHYSICAL_WINDOWS_ACCEPTANCE",
+        "WEB_REMOTE_E2E",
+    ]
 
 
 def test_release_gate_allows_only_evidence_backed_closure() -> None:

@@ -1,0 +1,164 @@
+"""Real MCP tools and HTTP OAuth discovery/denial contracts."""
+
+from __future__ import annotations
+
+import httpx2 as httpx
+import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
+from mcp.server.auth.provider import AccessToken
+
+from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
+from local_gpt_mcp.gateway.auth import GatewayConfig
+from local_gpt_mcp.gateway.registry import DeviceDirectory
+from local_gpt_mcp.gateway.server import create_gateway, create_gateway_server
+from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
+from local_gpt_mcp.policy.owner_presence import OwnerPresence
+
+CONFIG = GatewayConfig(
+    resource_url="https://gateway.example.com/mcp",
+    issuer_url="https://login.example.com",
+    jwks_url="https://login.example.com/keys",
+)
+
+
+class StubVerifier:
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if token != "valid-verified-token":
+            return None
+        return AccessToken(
+            token=token,
+            client_id="verified-client",
+            scopes=["devices:read"],
+            resource=CONFIG.resource_url,
+            subject="alice",
+        )
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
+
+
+@pytest.mark.anyio
+async def test_http_oauth_discovery_and_unauthenticated_denial() -> None:
+    app = create_gateway(CONFIG, verifier=StubVerifier())
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="https://gateway.example.com") as client:
+        metadata = await client.get("/.well-known/oauth-protected-resource/mcp")
+        assert metadata.status_code == 200
+        document = metadata.json()
+        assert document["resource"] == CONFIG.resource_url
+        assert CONFIG.issuer_url in document["authorization_servers"]
+        denied = await client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+            headers={"Accept": "application/json, text/event-stream"},
+        )
+        assert denied.status_code == 401
+        assert "resource_metadata=" in denied.headers["www-authenticate"]
+
+
+@pytest.mark.anyio
+async def test_account_scoped_tools_never_expose_remote_mutations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = DeviceDirectory()
+    directory.enroll_trusted("alice", "alice-pc", "Personal PC")
+    directory.enroll_trusted("bob", "bob-pc", "Private Bob PC")
+    principal = AccessToken(
+        token="fixture",
+        client_id="test-client",
+        scopes=["devices:read"],
+        resource=CONFIG.resource_url,
+        subject="alice",
+    )
+    monkeypatch.setattr("local_gpt_mcp.gateway.server.get_access_token", lambda: principal)
+    server = create_gateway_server(CONFIG, directory=directory, verifier=StubVerifier())
+    async with Client(server) as client:
+        names = {tool.name for tool in (await client.list_tools()).tools}
+        assert names == {"list_my_devices", "device_status", "read_from_device"}
+        own = await client.call_tool("list_my_devices", {})
+        assert not own.is_error
+        assert own.structured_content == {
+            "devices": [{"device_id": "alice-pc", "label": "Personal PC", "online": False}]
+        }
+        foreign = await client.call_tool("device_status", {"device_id": "bob-pc"})
+        assert foreign.is_error
+        offline = await client.call_tool(
+            "read_from_device",
+            {"device_id": "alice-pc", "kind": "desktop_window_info", "target": "window:41"},
+        )
+        assert offline.is_error
+
+
+@pytest.mark.anyio
+async def test_contextless_and_unscoped_requests_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = create_gateway_server(CONFIG, verifier=StubVerifier())
+    monkeypatch.setattr("local_gpt_mcp.gateway.server.get_access_token", lambda: None)
+    async with Client(server) as client:
+        assert (await client.call_tool("list_my_devices", {})).is_error
+
+
+@pytest.mark.anyio
+async def test_real_authenticated_streamable_http_mcp_client_is_tenant_scoped() -> None:
+    directory = DeviceDirectory()
+    directory.enroll_trusted("alice", "pc-a", "Alice's PC")
+    directory.enroll_trusted("bob", "pc-b", "Bob's PC")
+    app = create_gateway(CONFIG, directory=directory, verifier=StubVerifier())
+    transport = httpx.ASGITransport(app=app)
+
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=transport,
+            base_url=CONFIG.resource_url,
+            headers={"Authorization": "Bearer valid-verified-token"},
+        ) as http_client,
+        Client(streamable_http_client(CONFIG.resource_url, http_client=http_client)) as client,
+    ):
+        tools = {tool.name for tool in (await client.list_tools()).tools}
+        assert tools == {"list_my_devices", "device_status", "read_from_device"}
+        devices = await client.call_tool("list_my_devices", {})
+        assert not devices.is_error
+        assert devices.structured_content == {
+            "devices": [{"device_id": "pc-a", "label": "Alice's PC", "online": False}]
+        }
+        foreign = await client.call_tool("device_status", {"device_id": "pc-b"})
+        assert foreign.is_error
+
+
+@pytest.mark.anyio
+async def test_optional_input_tool_denies_read_only_model_without_owner_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The separately scoped tool must not enqueue input for a read-only client."""
+    signer = Ed25519PrivateKey.generate()
+    presence = OwnerPresence(
+        origin="https://gateway.example.com",
+        receipt_signer=signer,
+        stopped=lambda: False,
+    )
+    approvals = OwnerApprovalQueue(presence)
+    actions = RemoteActionRelay(approvals, connected=lambda owner, device: True)
+    principal = AccessToken(
+        token="read-only-model",
+        client_id="model",
+        scopes=["devices:read"],
+        resource=CONFIG.resource_url,
+        subject="alice",
+    )
+    monkeypatch.setattr("local_gpt_mcp.gateway.server.get_access_token", lambda: principal)
+    server = create_gateway_server(CONFIG, verifier=StubVerifier(), actions=actions)
+    async with Client(server) as client:
+        tools = {tool.name for tool in (await client.list_tools()).tools}
+        assert "request_device_click" in tools
+        denied = await client.call_tool(
+            "request_device_click",
+            {"device_id": "pc-a", "session_id": "session-1", "target": "window:41", "x": 1, "y": 1},
+        )
+        assert denied.is_error
+    assert approvals.list_owned("alice") == []

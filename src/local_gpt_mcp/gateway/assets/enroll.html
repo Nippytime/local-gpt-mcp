@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register owner passkey | Local GPT MCP</title>
+  <link rel="stylesheet" href="/owner/enroll.css">
+  <script type="module" src="/owner/enroll.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Register your owner passkey</h1>
+    <p>Sign in independently as the PC owner. An authorized operator must provide a one-time enrollment code.</p>
+    <p>Do not paste your code into ChatGPT, an MCP tool, or an untrusted website.</p>
+    <section aria-label="Owner sign-in">
+      <h2>1. Verify your identity</h2>
+      <button id="sign-in" type="button">Sign in as owner</button>
+    </section>
+    <section aria-label="Passkey registration">
+      <h2>2. Create your passkey</h2>
+      <label for="operator-code">One-time operator code</label>
+      <input id="operator-code" type="password" maxlength="43" spellcheck="false" autocomplete="off" autocapitalize="off" disabled>
+      <button id="register" type="button" disabled>Create passkey on this device</button>
+    </section>
+    <p role="status" id="status" aria-live="polite">Sign in to begin.</p>
+  </main>
+</body>
+</html>

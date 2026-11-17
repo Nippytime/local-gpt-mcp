@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approve PC actions — Local GPT MCP</title>
+  <link rel="stylesheet" href="/owner/approve.css">
+  <script type="module" src="/owner/approve.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Approve actions on your PC</h1>
+      <p>Only actions waiting for your independent approval appear here.
+        Check the selected PC, window, and exact click before confirming with your passkey.</p>
+    </header>
+    <section aria-label="Account controls">
+      <button id="sign-in" type="button">Sign in securely</button>
+      <button id="refresh" type="button" disabled>Refresh requests</button>
+      <button id="halt" type="button" disabled>Stop pending remote requests</button>
+      <p id="status" role="status" aria-live="polite">Sign in with your owner account to view pending requests.</p>
+    </section>
+    <section aria-label="Pending requests">
+      <h2>Requests awaiting approval</h2>
+      <div id="requests"></div>
+    </section>
+    <footer>
+      <p>Approval never unlocks Windows, bypasses UAC, or replaces the PC's local STOP.
+        This page only approves one exact request. Never approve an unexpected action.</p>
+    </footer>
+  </main>
+</body>
+</html>

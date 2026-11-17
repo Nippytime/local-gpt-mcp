@@ -1,15 +1,16 @@
 # Release acceptance and recovery — Item 9
 
-**Status:** Not release-ready. `dev` contains eight CI-verified implementation slices, but the production `main` branch remains unchanged. High-risk release blockers are open in `security/release_blockers.json` and are checked automatically by `./ci/run release`. Do not override that check to ship.
+**Status:** Not release-ready. `dev` contains CI-verified default-OFF hosted OAuth MCP, outbound Windows agent, and independent WebAuthn owner-approval source; these features are **not yet proven in a live two-location ChatGPT web session**. Production `main` remains unchanged. High-risk release blockers are open in `security/release_blockers.json` and are checked automatically by `./ci/run release`. Do not override that check to ship. The required **three HIGH blockers** are `DNS_REBINDING_TOCTOU`, `PHYSICAL_WINDOWS_ACCEPTANCE`, and `WEB_REMOTE_E2E`; none is closed by hosted CI.
 
 ## Prerequisites for production approval
 
 1. Review [THREAT_MODEL.md](THREAT_MODEL.md), the latest [control Issue #1](https://github.com/Nippytime/local-gpt-mcp/issues/1), and [release Issue #10](https://github.com/Nippytime/local-gpt-mcp/issues/10). Confirm every high-risk record has verified fix/acceptance evidence and the blocker manifest is updated only after evidence is attached.
-2. Resolve DNS-rebinding/TOCTOU at **network connection time**. Item 9 now contains a candidate pinned public-IP HTTPS fetcher and mock socket-level rebinding tests. Verify a **real** Playwright/Chromium browser load through this transport, no private/reserved outbound IP under DNS changes, TLS hostname checks, blocked redirects and blocked alternate browser channels. Keep the high-risk blocker open until reproducible end-to-end evidence is recorded.
+2. Resolve DNS-rebinding/TOCTOU at **network connection time**. The candidate pinned public-IP HTTPS fetcher and mock socket-level rebinding tests are now in `dev` via [PR #72](https://github.com/Nippytime/local-gpt-mcp/pull/72). Verify a **real** Playwright/Chromium browser load through this transport, no private/reserved outbound IP under DNS changes, TLS hostname checks, blocked redirects and blocked alternate browser channels. Keep the high-risk blocker open until reproducible end-to-end evidence is recorded.
 3. Verify the local Windows safety panel, user-typed pairing and grants, scope display, direct-action approval, emergency stop, and denial for headless/missing UI. Use a real standard-user Windows 10/11 PC, not just GitHub-hosted runners.
 4. Run `python tests/windows/manual_ui_smoke.py` and `python tests/windows/manual_smoke.py` on the actual machine, record the OS build, accessibility (including keyboard/screen reader), screenshots and logs with sensitive content removed, and test refusal on the lock screen and UAC secure desktop **without interacting with UAC automatically**.
 5. Execute `packaging/windows/install.ps1`, the safe unpaired launcher, `uninstall.ps1 -WhatIf`, and the actual uninstaller on a fresh non-administrator profile. Confirm no services, administrator prompts, scheduled tasks, registry autorun, or residue in the owned installation directory.
-6. Review the latest `Adversarial security regression` CycloneDX inventory (`artifacts/ci/sbom.cdx.json`), the separate dependency audit, and all existing PR CI checks. Document the package/version and dependency evidence in Issue #10.
+6. Before production, verify real **remote ChatGPT web-to-PC** on two physical networks/devices using the operator-provisioned HTTPS gateway, separate OAuth browser client, owner passkey UP+UV, signed action approval and local STOP/lock/UAC denial. Record redacted evidence in [Issue #24](https://github.com/Nippytime/local-gpt-mcp/issues/24). This is a separate HIGH release blocker; no hosted mock substitutes for the trial.
+7. Review the latest `Adversarial security regression` CycloneDX inventory (`artifacts/ci/sbom.cdx.json`), the separate dependency audit, and all existing PR CI checks. Document the package/version and dependency evidence in Issue #10.
 
 ## Reproducible build and provenance
 
@@ -28,7 +29,7 @@ Only after acceptance, propose a PR from verified `dev` into `main` under the re
 
 ## User setup and ChatGPT connection
 
-The current companion exposes **local stdio MCP only**, not an Internet HTTP server. ChatGPT web cannot automatically connect to a user's Windows PC. A supported local MCP-capable host must be installed, locally invoked, authenticated and bound to the user's explicit desktop/browser scope; any future remote tunnel requires separate network authentication, encrypted transport, scope binding and end-to-end attack review. Do not imply remote access is available without those pieces.
+The project implements a **default-OFF public HTTPS OAuth MCP gateway** plus a manually installed outbound-only Windows agent, separately authenticated owner passkey portal and a strictly bounded locally selected window-input pilot. This is **source-level integration only**: do not claim ChatGPT web access until the specific account/workspace supports the custom MCP tool path, the gateway and real independent IdP are deployed, the Windows user explicitly opts into local input, and an actual second-device owner passkey assertion and different-location end-to-end trial pass. No unpaired or model-self-approved remote control is authorized. See [web architecture](WEB_REMOTE.md), [operator bootstrap](OWNER_BOOTSTRAP.md), [control Issue #1](https://github.com/Nippytime/local-gpt-mcp/issues/1), and [two-location acceptance Issue #24](https://github.com/Nippytime/local-gpt-mcp/issues/24).
 
 See [OPERATIONS.md](OPERATIONS.md) for opt-in per-user installation, active safety controls, diagnostic and uninstall procedures.
 
