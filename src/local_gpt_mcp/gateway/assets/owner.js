@@ -5,7 +5,6 @@ const status = (message) => { $("status").textContent = message; };
 let config;
 let accessToken = "";
 let credentialIds = [];
-
 function base64url(bytes) {
   let data = "";
   for (const byte of bytes) data += String.fromCharCode(byte);
@@ -19,7 +18,6 @@ function fromBase64url(encoded) {
   const value = atob(encoded.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(encoded.length / 4) * 4, "="));
   return Uint8Array.from(value, (char) => char.charCodeAt(0));
 }
-
 async function digest(data) {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", data));
 }
@@ -72,7 +70,6 @@ async function finishSignIn() {
   accessToken = token.access_token;
   return true;
 }
-
 async function api(path, method = "GET", data) {
   if (!accessToken) throw new Error("Sign in as the owner to use this action");
   const response = await fetch(path, {
@@ -88,7 +85,6 @@ async function api(path, method = "GET", data) {
   if (!response.ok) throw new Error("Request denied, expired, or no longer available");
   return response.json();
 }
-
 function row(label, value, parent) {
   const dt = document.createElement("dt");
   const dd = document.createElement("dd");
@@ -136,7 +132,6 @@ function requestCard(request) {
   card.append(chooser, approve, deny);
   return card;
 }
-
 async function confirmAction(jobId, credentialId) {
   if (!navigator.credentials?.get) throw new Error("Passkeys are unavailable in this browser");
   const started = await api("/api/owner/approvals/begin", "POST", {
@@ -186,7 +181,6 @@ async function refresh() {
 async function run(task) {
   try { await task(); } catch (error) { status(error.message || "Request unavailable"); }
 }
-
 async function main() {
   try {
     const response = await fetch("/owner/approve-config", { cache: "no-store" });

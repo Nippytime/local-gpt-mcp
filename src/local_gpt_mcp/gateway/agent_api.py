@@ -21,6 +21,7 @@ from local_gpt_mcp.agent.identity import MAX_BODY, DeviceAuthenticationError
 from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
+from local_gpt_mcp.policy.stop_ledger import StopDenied
 
 OWNER_SCOPE = "devices:manage"
 
@@ -98,7 +99,7 @@ def install_agent_routes(
                 ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
                 response = await handler(request)
-            except (DeviceAuthenticationError, DeviceUnavailable, ValueError, TypeError):
+            except (DeviceAuthenticationError, DeviceUnavailable, StopDenied, ValueError, TypeError):
                 # Do not disclose ownership, enrollment details or signature results.
                 response = JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
             response.headers["Cache-Control"] = "no-store"
@@ -128,6 +129,14 @@ def install_agent_routes(
         if actions is not None:
             actions.revoke_device(owner, device_id)
         return JSONResponse({"revoked": True})
+
+    @safe
+    async def owner_halt(request: Request) -> JSONResponse:
+        owner = await _owner(request, verifier, resource)
+        relay.halt_owner(owner)
+        if actions is not None:
+            actions.halt_owner(owner)
+        return JSONResponse({"halted": True})
 
     @safe
     async def agent_enroll(request: Request) -> JSONResponse:
@@ -191,6 +200,7 @@ def install_agent_routes(
     app.router.routes[:0] = [
         Route("/api/owner/enrollments", owner_enrollment, methods=["POST"]),
         Route("/api/owner/revoke", owner_revoke, methods=["POST"]),
+        Route("/api/owner/halt", owner_halt, methods=["POST"]),
         Route("/api/agent/enroll", agent_enroll, methods=["POST"]),
         Route("/api/agent/poll", agent_poll, methods=["POST"]),
         Route("/api/agent/result", agent_result, methods=["POST"]),

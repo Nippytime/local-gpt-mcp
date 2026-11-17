@@ -24,6 +24,7 @@ from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.owner_portal import OwnerPortalConfig, install_owner_portal
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
+from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger
 
 READ_SCOPE = "devices:read"
 
@@ -161,9 +162,11 @@ def create_from_env() -> Starlette:
     if any(not os.environ.get(key) for key in keys):
         raise RuntimeError("Hosted gateway requires an HTTPS resource, issuer and JWKS URL")
     config = GatewayConfig(*(os.environ[key] for key in keys))
+    stop_path = os.environ.get("LOCAL_MCP_STOP_DB")
+    stops = SQLiteStopLedger(Path(stop_path)) if stop_path is not None else None
     mode = os.environ.get("LOCAL_MCP_REMOTE_APPROVALS", "0")
     if mode == "0":
-        return create_gateway(config, relay=AgentRelay())
+        return create_gateway(config, relay=AgentRelay(stops=stops))
     if mode != "1":
         raise RuntimeError("Remote approvals must be explicitly enabled with 1 or disabled with 0")
     if os.environ.get("LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK") != "1":
@@ -188,7 +191,7 @@ def create_from_env() -> Starlette:
         raise RuntimeError("Passkey database must share the private issuer directory")
     signer = load_issuer_key(issuer_path)
     credentials = SQLitePasskeys(passkey_path)
-    relay = AgentRelay()
+    relay = AgentRelay(stops=stops)
     origin = config.resource_url.removesuffix("/mcp")
     presence = OwnerPresence(
         origin=origin,
