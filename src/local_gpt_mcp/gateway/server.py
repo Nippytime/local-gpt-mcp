@@ -202,7 +202,9 @@ def create_from_env() -> Starlette:
             "LOCAL_MCP_OWNER_TOKEN_URL",
         ]
         if any(not os.environ.get(name) for name in required):
-            raise RuntimeError("Remote approval issuer, passkey store and pinned owner OAuth client are required")
+            raise RuntimeError(
+                "Remote approval issuer, passkey store and pinned owner OAuth client are required"
+            )
 
         from local_gpt_mcp.gateway.issuer_keys import load_issuer_key
         from local_gpt_mcp.policy.owner_presence import OwnerPresence
@@ -213,13 +215,13 @@ def create_from_env() -> Starlette:
         if passkey_path.parent != issuer_path.parent:
             raise RuntimeError("Passkey database must share the private issuer directory")
         signer = load_issuer_key(issuer_path)
-        credentials = SQLitePasskeys(passkey_path)
+        approval_credentials = SQLitePasskeys(passkey_path)
         origin = config.resource_url.removesuffix("/mcp")
         presence = OwnerPresence(
             origin=origin,
             receipt_signer=signer,
             stopped=lambda: False,
-            credential_store=credentials,
+            credential_store=approval_credentials,
         )
         approvals = OwnerApprovalQueue(presence)
         actions = RemoteActionRelay(approvals, connected=relay.connected)
