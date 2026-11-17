@@ -9,7 +9,8 @@ from typing import Any
 
 import pytest
 from mcp import Client
-from playwright.async_api import Error as PlaywrightError, Route
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import Route
 
 from local_gpt_mcp.browser import BrowserController
 from local_gpt_mcp.browser.controller import BrowserDenied, origin_of
