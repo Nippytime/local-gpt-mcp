@@ -172,3 +172,34 @@ async def test_default_agent_never_releases_unapproved_pc_data() -> None:
         assert await agent.tick()
         with pytest.raises(DeviceUnavailable):
             await pending
+
+
+@pytest.mark.anyio
+async def test_owner_and_agent_routes_reject_foreign_host_and_browser_origin() -> None:
+    relay = AgentRelay()
+    directory = DeviceDirectory(relay)
+    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
+    ) as client:
+        for headers in (
+            {"Host": "untrusted.example.com"},
+            {"Origin": "https://untrusted.example.com"},
+            {"Origin": "null"},
+        ):
+            denied = await client.post(
+                "/api/owner/enrollments",
+                json={"label": "Never enrolled"},
+                headers={"Authorization": "Bearer alice", **headers},
+            )
+            assert denied.status_code == 403
+
+        # A signed request cannot bypass the public Host boundary.
+        identity = DeviceIdentity.generate("pc-test")
+        signed = sign_request(identity.private_key, identity.device_id, "/api/agent/poll", b"{}")
+        denied_poll = await client.post(
+            "/api/agent/poll",
+            content=b"{}",
+            headers={**signed, "Host": "untrusted.example.com"},
+        )
+        assert denied_poll.status_code == 403

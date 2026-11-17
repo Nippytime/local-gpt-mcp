@@ -7,6 +7,7 @@ the agent can only poll and answer bounded read requests on its own identity.
 from __future__ import annotations
 
 import json
+from urllib.parse import urlsplit
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -54,10 +55,20 @@ def install_agent_routes(
     app: Starlette, relay: AgentRelay, verifier: TokenVerifier, resource: str
 ) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
+    public = urlsplit(resource)
+    host = public.netloc.casefold()
+    origin = f"{public.scheme}://{public.netloc}"
 
     def safe(handler: Callable[[Request], Awaitable[JSONResponse]]) -> Callable[[Request], Awaitable[JSONResponse]]:
         async def call(request: Request) -> JSONResponse:
             try:
+                # The MCP SDK's transport Host/Origin policy must also apply
+                # to these additional non-MCP endpoints.
+                if (
+                    request.headers.get("host", "").casefold() != host
+                    or request.headers.get("origin") not in (None, origin)
+                ):
+                    raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
                 return await handler(request)
             except (DeviceAuthenticationError, DeviceUnavailable, ValueError, TypeError):
                 # Do not disclose ownership, enrollment details or signature results.
