@@ -43,7 +43,9 @@ class WindowsClickAdapter:
         self._policy = policy
         self._selected = selected
 
-    async def execute(self, target: str, operation: str, parameters: Mapping[str, int]) -> dict[str, str | int | bool]:
+    async def execute(
+        self, target: str, operation: str, parameters: Mapping[str, int]
+    ) -> dict[str, str | int | bool]:
         """One bounded click only; no focus switching, typing, shell or UAC bypass."""
         match = TARGET.fullmatch(target) if isinstance(target, str) else None
         if (
