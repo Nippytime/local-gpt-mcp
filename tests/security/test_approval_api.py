@@ -112,9 +112,7 @@ async def test_owner_passkey_confirm_is_one_job_and_device_only(tmp_path: Path) 
             await client.get("/api/owner/approvals", headers={"Authorization": "Bearer model"})
         ).status_code == 403
         assert (
-            await client.get(
-                "/api/owner/approvals", headers={"Authorization": "Bearer wrong-browser"}
-            )
+            await client.get("/api/owner/approvals", headers={"Authorization": "Bearer wrong-browser"})
         ).status_code == 403
         bob = await client.get("/api/owner/approvals", headers={"Authorization": "Bearer bob-owner"})
         assert bob.json() == {"approvals": []}
@@ -256,7 +254,5 @@ async def test_approval_routes_fail_closed_without_independent_owner_client_pin(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:
         assert (
-            await client.get(
-                "/api/owner/approvals", headers={"Authorization": "Bearer alice-owner"}
-            )
+            await client.get("/api/owner/approvals", headers={"Authorization": "Bearer alice-owner"})
         ).status_code == 403
