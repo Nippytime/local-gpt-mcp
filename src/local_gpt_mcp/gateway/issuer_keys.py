@@ -83,7 +83,9 @@ def load_issuer_key(path: Path) -> Ed25519PrivateKey:
 def main() -> None:
     """Offline operator command. Only the public pin is printed to stdout."""
     parser = argparse.ArgumentParser(description="Provision a private remote-approval issuer")
-    parser.add_argument("--key-file", required=True, type=Path, help="Private absolute PEM path (0700 parent)")
+    parser.add_argument(
+        "--key-file", required=True, type=Path, help="Private absolute PEM path (0700 parent)"
+    )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--create", action="store_true", help="Create once, never overwrite")
     group.add_argument("--show-public", action="store_true", help="Print the public PC pin only")

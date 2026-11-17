@@ -126,9 +126,7 @@ async def test_owner_approval_requires_pinned_browser_oauth_client() -> None:
         receipt_signer=Ed25519PrivateKey.generate(),
         stopped=lambda: False,
     )
-    app = create_gateway(
-        config, verifier=Tokens(), approvals=OwnerApprovalQueue(presence), portal=PORTAL
-    )
+    app = create_gateway(config, verifier=Tokens(), approvals=OwnerApprovalQueue(presence), portal=PORTAL)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
     ) as client:

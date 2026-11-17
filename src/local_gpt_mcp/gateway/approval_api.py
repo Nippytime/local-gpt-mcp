@@ -57,9 +57,7 @@ def install_approval_routes(
         return call
 
     async def authenticate(request: Request) -> str:
-        return await _owner(
-            request, verifier, resource, scope=APPROVAL_SCOPE, client_id=owner_client_id
-        )
+        return await _owner(request, verifier, resource, scope=APPROVAL_SCOPE, client_id=owner_client_id)
 
     @safe
     async def list_pending(request: Request) -> JSONResponse:

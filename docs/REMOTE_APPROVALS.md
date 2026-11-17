@@ -1,109 +1,20 @@
-# Remote owner receipts — Issue #23 (first security boundary)
+# Remote owner approval — controlled single-process pilot (Issue #23)
 
-This initial change is **only the device-side signed approval verifier**, not a finished phone portal, WebAuthn/passkey ceremony, or remotely enabled input. Do not call it owner-present until an independently authenticated owner service has approved the *exact* pending action.
+**Default:** `create_from_env()` and normal `local-gpt-agent --run` remain read-only/deny-all for remote input. The owner browser portal, owner APIs and `request_device_click` MCP tool are absent unless independently enabled. This is neither a deployed service nor evidence of ChatGPT web controlling a different-location PC.
+**Owner consent:** The authenticated `/owner/approve` portal uses a separately registered OAuth public browser client, authorization-code PKCE S256, CSRF state, a pinned HTTPS issuer, `approvals:manage` and in-memory browser bearer. The service enforces that client ID; a model/MCP token cannot approve its own request. For one exact preexisting job the browser calls `navigator.credentials.get` with UP+UV; server verifies P-256 signature, RP ID, origin, challenge, expiration, credential owner and monotonic counter. No HTTP/MCP endpoint enrolls passkeys, creates approvals from owner input, exports the receipt or exposes private keys.
+**Job proof:** The trusted `RemoteActionRelay` accepts bounded `window.click` coordinates only for a verified `devices:read` + `devices:input` account and an authenticated connected device. Only an independently verified passkey assertion releases the Ed25519-signed 30-second receipt on a device-key-signed `/api/agent/actions/poll`. Receipt binds account, device, session, exact job ID, HWND, capability, canonical action hash and one-use nonce. The PC pins its issuer public key, transactionally consumes the nonce in local SQLite, rechecks pairing and STOP, then invokes the guarded native Win32 adapter. Expired/forged/foreign/changed/replayed jobs deny; uncertain input is never retried automatically.
+**Cancellation:** Owner `/api/owner/approvals/deny` and `/halt` cancel pending jobs for that gateway process; device revoke prevents new jobs. These are **not** a durable global STOP. Only the local Windows panel STOP is authoritative immediately at the PC. The native adapter rechecks actual window/process identity, selected foreground, unlocked user session, UAC/elevation, occlusion, bounds and STOP at dispatch. No focus switching, remote shell, typing, or bypass of OS dialogs is authorized.
 
-- A verifier must receive a **locally pinned Ed25519 public key**, a trusted user-owned SQLite replay database and an emergency-stop callback. None may come from a ChatGPT tool argument, untrusted web page, or remote request. Missing configuration must deny.
-- Receipts bind verified account, paired device, session, exact native target, capability, canonical hash of the specific action parameters, 128-bit single-use nonce, issued-at time and expiry. Every changed field or signature mismatch rejects the action. Max lifetime is 60 seconds.
-- SQLite transactionally consumes nonce before dispatch. Reopening the same replay database after an agent restart still rejects the same receipt. A local STOP denies both before and after consumption; **the native executor still must check PolicyAuthority, foreground/lock/UAC/target and STOP immediately before each effect**.
-- No typed text, secret, cookie, browser token, or screenshot is stored in the replay table (nonce and expiry only). Receipt data may contain a target; do not log or expose it to untrusted callers.
-- `issue_testable_receipt` is a signing primitive for deterministic security tests and a future independently trusted issuer. Its presence **does not assert owner presence** and must never be registered as an MCP tool or public unauthenticated endpoint.
+## Operator-only HTTPS gateway (POSIX; one worker)
+1. Provision a protected issuer once: create a private service-owned mode-0700 directory, then `local-gpt-issuer --create --key-file /private/owner-mcp/issuer.pem` (exclusive 0600 key). `--show-public` with the same key path prints **only the public pin**. Never upload private PEM to the PC, ChatGPT, a repository or a browser. Symlinks, shared permissions, wrong algorithms, missing or malformed private keys deny startup.
+2. Configure a separate real OAuth authorization server with RS256 JWKS and the `https://gateway.example/mcp` audience; register an owner browser public client with PKCE, exact callback `https://gateway.example/owner/approve`, `approvals:manage`, CORS token exchange, and a distinct MCP client with `devices:read`/`devices:input`. Approval endpoints pin the owner's verified OAuth client ID. No model-controlled request or bearer substitutes for a real passkey.
+3. Supply required `LOCAL_MCP_RESOURCE_URL`, `LOCAL_MCP_ISSUER_URL`, `LOCAL_MCP_JWKS_URL`, plus `LOCAL_MCP_REMOTE_APPROVALS=1`, `LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK=1`, `LOCAL_MCP_APPROVAL_SIGNER_FILE=/private/owner-mcp/issuer.pem`, `LOCAL_MCP_PASSKEY_DB=/private/owner-mcp/passkeys.sqlite`, `LOCAL_MCP_OWNER_CLIENT_ID=<owner-browser-client>`, `LOCAL_MCP_OWNER_AUTHORIZE_URL=https://issuer.example/authorize` and `LOCAL_MCP_OWNER_TOKEN_URL=https://issuer.example/token`. Missing, invalid or unsafe configuration fails closed; `LOCAL_MCP_REMOTE_APPROVALS=0` (default) leaves remote input absent.
+4. A trusted operator must separately verify and enroll **real** WebAuthn P-256 credential IDs and public keys into the owner-scoped `SQLitePasskeys` store; first-passkey browser registration is **not implemented**. The database persists public keys/counters, never private credentials; credential revocation and counter rollback deny. In-memory pending work/device enrollment, STOP flags and device signature nonces are **not shared or durable**; a restart cancels pending consent and loses enrollments. Never run multiple workers in this pilot or claim production availability.
 
-## Mandatory integration before remote input
+## Manual Windows startup and STOP
+1. Pair with `local-gpt-agent --gateway https://gateway.example --pair` using a real one-time authenticated owner enrollment. Locally and independently verify the issuer's public pin, then install its 44-character padded URL-safe base64 text in the Windows user's `owner-issuer.pub` alongside the private DPAPI-protected device credential; never accept a pin from an MCP argument or untrusted webpage.
+2. While physically present, select an exact safe HWND and run `local-gpt-agent --gateway https://gateway.example --run-approved-input --owner-id <jwt-sub> --window-handle <HWND>`. Foreground the window during local selection. The visible native Tk safety panel requires a typed pairing challenge; decline or close to deny. No autostart, listener, or persistence of physical pairing after restart is installed.
+3. Leave the selected unelevated window in the unlocked interactive user session; lock/UAC, foreground changes, replaced windows, disconnect, missing receipts or STOP deny. Later clicks still require independent owner-passkey approval on the trusted browser/phone. Emergency STOP on the PC revokes locally; cloud halt alone cannot guarantee stopping an already dispatched or disconnected PC.
 
-1. A **separate authenticated phone/browser UI** must challenge for a concrete pending device action and verify owner presence (prefer WebAuthn/passkey UV); not accept approval from MCP, a model-controlled tab or its bearer token. The trusted issuer signs only after that ceremony.
-2. Bind the receipt to a short-lived, tenant-scoped relay job; the Windows process must verify it against the *live* local policy and native target. No remote click/type/navigation can be attempted when the owner is offline, approval is absent, or the computer is locked.
-3. Implement server-side revocation/STOP and reliable cancellation of queued and in-flight work; renew only through a fresh owner approval. Lost acknowledgments must not replay uncertain input.
-4. Test malicious issuer/key substitution, spoofed user/device/session, changed action/target, replay across restarts, expiry, concurrent STOP, browser/phone user presence, Windows lock/UAC, lost connectivity and real cross-location ChatGPT web invocation.
-
-No public HTTP write or approval endpoint is added by this first commit. Existing high-risk release blockers remain **OPEN**. The complete live two-device flow is required before Issue #23 can close, and actual ChatGPT web operation remains Issue #24.
-
-
-## Verified user-presence building block (active PR #28)
-
-`policy/owner_presence.py` now provides a **trusted service-side ES256 WebAuthn assertion verifier**, not a web login/registration endpoint. Owner and passkey are enrolled via `register_trusted` only by a trusted operator integration. The issuer receives an owner identity from an independently verified caller, binds a single short-lived challenge to a pending `ScopedAction` and registered credential, then checks the actual browser's `webauthn.get` signed assertion against:
-
-- exact HTTPS approval origin and relying-party SHA-256 hash; exact server-held challenge, `webauthn.get` client-data type and no cross-origin assertion;
-- required user-presence (UP) **and** user-verification (UV) authenticator flags, P-256 ECDSA signature, monotonic nonzero sign counter, one-attempt challenge consumption and expiration;
-- owner/credential binding and emergency-stop checks before producing a 30-second exact-action receipt. The device still checks the separately pinned receipt issuer and nonce database.
-
-Deterministic tests generate real P-256 signatures and reject forged keys, foreign origins, missing UV, stale challenges, counter rollback and consumed challenges. **No browser registration ceremony, production durable credential/counter storage, independently authenticated phone UI, trusted pending-relay-job linkage, native input wiring, real two-device session, or deployable hosting is claimed by this unit.** Never expose `begin`, `finish`, `register_trusted` or the receipt signer as MCP tools. Model-controlled web content cannot be treated as the trusted approval UI.
-
-
-## Trusted pending job and OAuth-owner API prototype — PR #28
-
-The `OwnerApprovalQueue` allows only **trusted, in-process relay code** to enqueue a job bound to owner, device, session, job ID, target, capability, and the canonical hash of the **actual** action operation/parameters. The owner cannot generate an arbitrary job from an HTTP request, choose its target/parameters at approval time, or retrieve the receipt from the owner-facing API. A 60-second bound, single WebAuthn challenge, exact job matching, one-time trusted receipt pickup, explicit deny, bounded pending capacity and owner-queue halt are enforced in the prototype.
-
-`create_gateway(..., approvals=...)` optionally enables separate owner OAuth endpoints. It is **disabled by default** on the production `create_from_env` entry point until an independently authenticated owner portal and durable store are configured. These endpoints are not MCP tools:
-
-| Endpoint | Scope | Behavior |
-| --- | --- | --- |
-| `GET /api/owner/approvals` | `approvals:manage` | Owner-only pending exact action details, no receipts |
-| `POST /api/owner/approvals/begin` | `approvals:manage` | Challenge for an existing owner job and pre-enrolled passkey |
-| `POST /api/owner/approvals/finish` | `approvals:manage` **plus real passkey UP+UV assertion** | Authorize the precise pending job, returns acknowledgement only |
-| `POST /api/owner/approvals/deny` | `approvals:manage` | Cancel the specific pending job |
-| `POST /api/owner/approvals/halt` | `approvals:manage` | Cancel future approvals for this process/owner (not yet the native STOP) |
-
-Host/Origin checks, bounded request bodies, `Cache-Control: no-store`, and denial when the passkey or job is absent are required. Only the trusted device delivery seam `take_trusted` can retrieve a proof after verified owner presence; it is **not** an HTTP/MCP endpoint and is not yet integrated into signed agent polls. No public HTTP write/approval app is deployed, and no user should treat this as a production approval portal. Remaining work: production passkey enrollment and storage, OAuth PKCE browser integration, per-job real device/action creation, native STOP and execution-time verification on Windows, actual remote phone test and three release blockers.
-
-
-### Signed action transport (work in progress)
-
-The opt-in `RemoteActionRelay` now binds a server-trusted pending action to a randomly generated job ID, an existing authenticated device heartbeat, owner/device/session, a strict `window.click` argument allowlist and a separate owner WebAuthn approval queue. **No action is sent on a signed device poll until passkey approval succeeds.** Once approved, a receipt is removed from the owner queue and delivered **once** to the authenticated device at `POST /api/agent/actions/poll`; a matching bounded device-key-signed `POST /api/agent/actions/result` is the only accepted reply. Missing approval, foreign identity, expired job, offline device, revocation or owner halt deny. The job expires after 60 seconds; an uncertain remote input must never be retried automatically.
-
-This is a **transport-only** integration. The default `create_from_env` does NOT install the action endpoints, does NOT register an MCP write tool, and existing outbound agents do NOT execute actions. An agent-side receipt/nonce verifier with locally paired authority and native Windows safety checks remains mandatory before enabling any remote execution.
-
-
-### Conditional MCP request bridge and owner revoke/STOP
-
-Only when an operator explicitly constructs `create_gateway(..., relay=..., approvals=..., actions=...)` with matching trusted components is a `request_device_click` MCP tool registered. Its caller must hold both `devices:read` and the additional `devices:input` OAuth scope, and only its verified account's connected device may enter the server-side pending queue. **The model cannot approve the queued action**. The independent owner OAuth `approvals:manage` endpoint requires an actual UV-verified passkey assertion, and the signed device poll releases the one-use receipt only after approval. Owner revoke cancels outstanding device jobs; owner halt cancels pending jobs and disables future approvals for the owner in the current process.
-
-The Windows agent must explicitly install an `AuthorizedActionRunner` with pinned issuer verifier, user-scoped SQLite nonce store, `PolicyAuthority` previously paired on the local UI, and an adapter checking real target/foreground/lock/UAC/STOP. Default runner and gateway setup **do not enable native input**. There is still no hosted account/portal provisioning, durable distributed revocation, real native adapter configuration or physical Windows acceptance; do not claim end-to-end operation.
-
-
-## Durable passkey credential/counter store (single-host foundation)
-
-The trusted operator can inject `SQLitePasskeys(absolute_operator_owned_path)` into `OwnerPresence(..., credential_store=...)`. This preserves the **owner-pinned P-256 public key and monotonic signature counter** across gateway restarts. Each counter check/update uses SQLite `BEGIN IMMEDIATE` to reject parallel/rollback assertions; keys cannot be overwritten and operator-only revocation invalidates even an already issued challenge. Linux file permissions are restricted. The database stores no private issuer signing key or authenticator credential secrets.
-
-Without an explicitly supplied store, `OwnerPresence` retains an in-memory default suitable only for isolated deterministic tests. The SQLite store is **not enabled automatically** in `create_from_env`; production deployment must provision a protected, backed-up database path and independently protected Ed25519 signer. The in-memory challenge queue intentionally fails closed across restart. Shared hosted workers still require a transactional shared store and atomic pending jobs. This does not implement browser passkey registration or the remote approval frontend.
-
-
-## Owner-facing browser approval portal (operator-enabled, not deployed)
-
-A static same-origin owner UI exists at `/owner/approve`, with separate self-hosted JavaScript/CSS and strict CSP (no third-party script, iframes, inline HTML, or bearer token storage). A distinct OAuth **public browser client** signs in through a pinned issuer using authorization-code **PKCE S256** and a 256-bit CSRF state, acquires a resource-audience `approvals:manage` bearer **only in JavaScript memory**, and lists only that owner's pending device actions. Clicking approval invokes a real browser `navigator.credentials.get({publicKey: ...userVerification:"required"})` ceremony, posts the signed assertion, and never receives the device receipt. Deny and cloud-halt are separate actions.
-
-The feature requires an **explicit operator-created** `OwnerPortalConfig(client_id, authorization_endpoint, token_endpoint)` and `create_gateway(..., approvals=..., portal=...)`. The issuer's authorize/token endpoints must be fixed HTTPS routes at the configured JWT issuer; configure the OAuth provider with the exact callback `https://<gateway-domain>/owner/approve`, the resource audience `https://<gateway-domain>/mcp`, `approvals:manage` scope, and CORS access for the public-client token exchange. The browser OAuth client must be distinct from ChatGPT's MCP client. The operator must also configure persistent `SQLitePasskeys`, a separately protected owner receipt signing key, and **trusted passkey enrollment**; the enrollment ceremony and production key provisioning are still absent. Credential IDs must correspond to real base64url WebAuthn credential bytes; previous deterministic fixture IDs are not real passkeys.
-
-The portal and action routes remain completely **absent from default `create_from_env`**. This is a provider-dependent prototype, not a deployed owner login, production passkey registration flow, or demonstrated across-network Windows action. Full enterprise/shared-host storage, actual ChatGPT web MCP support, and physically verified lock/UAC/STOP are release blockers.
-
-
-## Explicit local Windows approved-input startup — operator-only prototype
-
-The standard `local-gpt-agent --gateway https://<your-domain> --run` **still denies all input**. The new `--run-approved-input` mode exists only to join the cloud owner-passkey proof to a **manually installed, physically approved Windows session**; it does not install an autostart service and is not enabled by the default server or by an MCP tool. On the PC:
-
-1. Pair this Windows account and device with `local-gpt-agent --gateway https://<your-domain> --pair` using a genuine one-time owner enrollment code. **Do not use a port-forward, disable Windows UAC, or move the private device key off the PC.**
-2. A trusted operator must provision the **verified** public Ed25519 receipt-issuer key as a single 44-character padded URL-safe base64 line in `%LOCALAPPDATA%\\LocalGPTMCP\\owner-issuer.pub`. This file is local trust configuration, **not** a value from a model/MCP tool, web content or unsigned remote job. A missing, linked, oversized or malformed key prevents launch. Secure production key rotation/revocation remains unimplemented.
-3. While present at the PC, identify the exact safe native HWND of the window to permit. Start `local-gpt-agent --gateway https://<your-domain> --run-approved-input --owner-id <oauth-sub> --window-handle <hwnd>`. Switch the selected window to the foreground during the bounded local selection step. No software focus-switching is allowed.
-4. The existing native `LocalSafetyPanel` opens and **requires a typed challenge for the account/device pairing**. Denial, panel failure or closing the panel fail closed. After approval the panel remains available for **EMERGENCY STOP**; leave the selected target window foreground for any future approved input. The PC must remain in the signed-in, unlocked and unelevated interactive desktop. Locking, UAC secure desktop, window replacement or changing focus blocks input.
-5. Per-job cloud consent still requires the *independent* owner OAuth + WebAuthn UV confirmation on a different trusted browser/phone. The device verifies the issuer signature, job/owner/device/session/target/action SHA-256, persistent one-use nonce, local pairing and emergency STOP **before** the guarded Win32 `click`.
-
-This command is only a local bootstrap seam and uses a user-scoped replay database in the same Windows profile. It is not yet a packaged installer, verified native physical acceptance, trusted external issuer/IdP deployment, or a generally available ChatGPT web plugin. The local window selection/STOP UI requires physical user interaction during initial setup, but not for every later remote owner-approved job. On process restart, the operator must approve pairing/window selection again.
-
-
-## Explicitly enabled hosted single-process approval pilot
-
-The default hosted `create_from_env()` **continues to expose read-only MCP tools and an outbound read relay**. An operator can now explicitly compose the already-tested owner portal, trusted WebAuthn assertion verifier, owner pending-action queue, signed outbound agent action relay and `devices:input` MCP click tool into one **single-process pilot** by setting every variable below.
-
-1. On a protected **POSIX** host, provision the issuer using `local-gpt-issuer --create --key-file /private/owner-mcp/issuer.pem`. The parent directory must be owned by the service user and mode 0700; the key is written with O_EXCL and mode 0600 and never overwritten. `local-gpt-issuer --show-public --key-file /private/owner-mcp/issuer.pem` prints only the corresponding public verification pin. Manually verify and install that public value on the Windows PC as `owner-issuer.pub`. **Never upload the issuer private key to the Windows PC, a model, or a connected repository.**
-2. Configure an independently managed issuer with correct RS256 JWT signing, protected-resource audience, registered browser OAuth public client, authorization-code PKCE S256, `approvals:manage` and `devices:input` scope policy, an exact public redirect `https://your-gateway.example/owner/approve`, and permitted owner-app CORS for the token exchange. The browser client's verified JWT client ID is now pinned separately for owner approval API calls, even if an unrelated MCP token has the same scopes.
-3. Supply `LOCAL_MCP_RESOURCE_URL`, `LOCAL_MCP_ISSUER_URL`, `LOCAL_MCP_JWKS_URL` (all mandatory for read-only too) and the explicit pilot configuration:
-   - `LOCAL_MCP_REMOTE_APPROVALS=1`
-   - `LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK=1`
-   - `LOCAL_MCP_APPROVAL_SIGNER_FILE=/private/owner-mcp/issuer.pem`
-   - `LOCAL_MCP_PASSKEY_DB=/private/owner-mcp/passkeys.sqlite`
-   - `LOCAL_MCP_OWNER_CLIENT_ID=registered-browser-public-client`
-   - `LOCAL_MCP_OWNER_AUTHORIZE_URL=https://your-issuer.example/authorize`
-   - `LOCAL_MCP_OWNER_TOKEN_URL=https://your-issuer.example/token`
-
-Any missing, inconsistent, unpinned or unsafe signer/OAuth/database configuration **fails startup** rather than silently opening input. Setting `LOCAL_MCP_REMOTE_APPROVALS=0` (default) leaves all write/owner routes absent. Provisioning and securely verifying the **first actual WebAuthn registration** remains a separate mandatory step; an empty trusted credential store cannot approve anything.
-
-**This is not a production multi-worker deployment:** per-process device enrollment, pending jobs, user STOP flags and device request nonce caches are not durable/shared. Restart drops incomplete requests and device enrollment, and multiple gateway workers do not share the same trusted state. Use one HTTPS worker only for controlled tests. Real passkey enrollment, durable multi-worker agent state, issuer key lifecycle/rotation, real Windows lock/UAC/STOP tests and ChatGPT web-to-PC acceptance are still required before declaring production readiness. Three high-risk release blockers remain open.
+## Release conditions
+**Still unverified:** operator/IdP deployment, first-device passkey registration and trusted enrollment, issuer rotation and revocation, restart-safe/multi-host enrollment/queue/STOP, real physical Windows lock/UAC/STOP and accessibility acceptance, signed install artifacts and actual supported ChatGPT-web-to-PC usage from a different location. Keep Issue #23, Issue #24, and all high-risk `DNS_REBINDING_TOCTOU`, `PHYSICAL_WINDOWS_ACCEPTANCE`, `WEB_REMOTE_E2E` blockers OPEN; do not merge the draft PR or release to `main` on simulated CI alone.

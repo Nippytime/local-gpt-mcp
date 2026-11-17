@@ -63,9 +63,7 @@ def test_bad_format_and_missing_key_deny(tmp_path: Path) -> None:
     bad.chmod(stat.S_IRUSR | stat.S_IWUSR)
     with pytest.raises(RuntimeError, match="Malformed"):
         load_issuer_key(bad)
-    wrong = Ed25519PrivateKey.generate().private_bytes(
-        Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
-    )
+    wrong = Ed25519PrivateKey.generate().private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
     bad.write_bytes(wrong + b"x" * 3000)
     with pytest.raises(RuntimeError, match="size"):
         load_issuer_key(bad)
