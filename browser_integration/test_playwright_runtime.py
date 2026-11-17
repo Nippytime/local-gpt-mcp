@@ -11,7 +11,9 @@ from mcp import Client
 from playwright.async_api import Route
 
 from local_gpt_mcp.browser import BrowserController
+from local_gpt_mcp.browser.controller import BrowserDenied, origin_of
 from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession
+from local_gpt_mcp.browser.safe_fetch import PinnedResponse
 from local_gpt_mcp.mcp.server import create_server
 from local_gpt_mcp.orchestrator.models import Step
 from local_gpt_mcp.pairing import SessionBroker
@@ -170,40 +172,37 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
 async def test_network_route_denies_private_and_cross_origin_requests(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver._public_dns", lambda host: True)
     broker = SessionBroker(PolicyAuthority(Approval()))
     controller = BrowserController(broker)
     runtime = IsolatedBrowserSession("https://example.com", controller, headless=True)
 
+    def fetch(url: str, origin: str, method: str, headers: dict[str, str]) -> PinnedResponse:
+        if origin_of(url) != origin or method != "GET" or "/redirect" in url:
+            raise BrowserDenied("Unsafe or redirected network request")
+        return PinnedResponse(200, {"content-type": "text/plain"}, b"safe")
+
+    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver.fetch_public_https", fetch)
+
     class RouteFake:
-        def __init__(self, url: str, status: int = 200) -> None:
-            self.request = SimpleNamespace(url=url)
+        def __init__(self, url: str) -> None:
+            self.request = SimpleNamespace(url=url, method="GET", headers={})
             self.result = ""
-            self.status = status
-            self.redirects = -1
 
-        async def fetch(self, *, max_redirects: int, timeout: int) -> SimpleNamespace:
-            self.redirects = max_redirects
-            assert timeout == 10_000
-            return SimpleNamespace(status=self.status)
-
-        async def fulfill(self, *, response: SimpleNamespace) -> None:
-            assert response.status == self.status
+        async def fulfill(self, *, status: int, headers: dict[str, str], body: bytes) -> None:
+            assert status == 200 and body == b"safe"
             self.result = "allowed"
 
         async def abort(self, reason: str) -> None:
             self.result = reason
 
-    for url, status, expected in (
-        ("https://example.com/assets.js", 200, "allowed"),
-        ("https://example.com/redirect", 302, "blockedbyclient"),
-        ("https://sub.example.com/", 200, "blockedbyclient"),
-        ("http://example.com/", 200, "blockedbyclient"),
-        ("http://127.0.0.1/private", 200, "blockedbyclient"),
-        ("https://169.254.169.254/latest/meta-data", 200, "blockedbyclient"),
+    for url, expected in (
+        ("https://example.com/assets.js", "allowed"),
+        ("https://example.com/redirect", "blockedbyclient"),
+        ("https://sub.example.com/", "blockedbyclient"),
+        ("http://example.com/", "blockedbyclient"),
+        ("http://127.0.0.1/private", "blockedbyclient"),
+        ("https://169.254.169.254/latest/meta-data", "blockedbyclient"),
     ):
-        mock = RouteFake(url, status)
-        await runtime._network(mock)  # type: ignore[arg-type]
-        assert mock.result == expected
-        if expected == "allowed":
-            assert mock.redirects == 0
+        route = RouteFake(url)
+        await runtime._network(route)  # type: ignore[arg-type]
+        assert route.result == expected
