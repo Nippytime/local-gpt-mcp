@@ -21,7 +21,8 @@ if TYPE_CHECKING:
 class LocalSafetyPanel:
     """Fail closed when the real local UI is unavailable or closed."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, always_on_top: bool = True) -> None:
+        self._always_on_top = always_on_top
         self._inbox = ApprovalInbox()
         self._authority: PolicyAuthority | None = None
         self._ready = threading.Event()
@@ -79,7 +80,7 @@ class LocalSafetyPanel:
             root.title("Local GPT MCP — Session Safety")
             root.geometry("540x560")
             root.minsize(460, 480)
-            root.attributes("-topmost", True)
+            root.attributes("-topmost", self._always_on_top)
             root.configure(padx=15, pady=12)
             status = tk.Label(root, text="NO APPROVED SESSIONS", font=("Segoe UI", 14, "bold"))
             status.pack(anchor="w", pady=(0, 12))
