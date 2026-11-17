@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from local_gpt_mcp.policy.authority import valid_identifier
 from local_gpt_mcp.policy.passkey_store import MemoryPasskeys, PasskeyStore
 from local_gpt_mcp.policy.remote_receipts import (
     RemoteApprovalDenied,
@@ -93,6 +94,11 @@ class OwnerPresence:
         """INTERNAL pre-enrollment only, never exposed to MCP or public HTTP."""
         with self._lock:
             self._credentials.register_trusted(owner, credential_id, public_key)
+
+    def credential_ids(self, owner: str) -> list[str]:
+        if not valid_identifier(owner):
+            raise RemoteApprovalDenied("Invalid owner identity")
+        return self._credentials.list_owned(owner)
 
     def begin(self, owner: str, credential_id: str, action: ScopedAction) -> PresenceChallenge:
         """Caller MUST have been authenticated independently of the MCP tool."""

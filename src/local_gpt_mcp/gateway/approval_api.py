@@ -63,6 +63,11 @@ def install_approval_routes(
         return JSONResponse({"approvals": approvals.list_owned(await authenticate(request))})
 
     @safe
+    async def credential_ids(request: Request) -> JSONResponse:
+        owner = await authenticate(request)
+        return JSONResponse({"credential_ids": approvals.credential_ids(owner)})
+
+    @safe
     async def begin(request: Request) -> JSONResponse:
         owner = await authenticate(request)
         data = await _json(request)
@@ -124,6 +129,7 @@ def install_approval_routes(
     # No POST to enqueue/submit jobs; those require a separate trusted relay.
     app.router.routes[:0] = [
         Route("/api/owner/approvals", list_pending, methods=["GET"]),
+        Route("/api/owner/approvals/credentials", credential_ids, methods=["GET"]),
         Route("/api/owner/approvals/begin", begin, methods=["POST"]),
         Route("/api/owner/approvals/finish", finish, methods=["POST"]),
         Route("/api/owner/approvals/deny", deny, methods=["POST"]),

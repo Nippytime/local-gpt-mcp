@@ -124,6 +124,20 @@ async def test_owner_passkey_confirm_is_one_job_and_device_only(tmp_path: Path) 
         assert listing.headers["cache-control"] == "no-store"
         assert listing.json()["approvals"][0]["parameters"] == {"x": 18, "y": 35}
         assert "receipt" not in listing.text
+        credentials = await client.get("/api/owner/approvals/credentials", headers=alice)
+        assert credentials.status_code == 200
+        assert credentials.json() == {"credential_ids": [CREDENTIAL]}
+        bob_credentials = await client.get(
+            "/api/owner/approvals/credentials",
+            headers={"Authorization": "Bearer bob-owner"},
+        )
+        assert bob_credentials.json() == {"credential_ids": []}
+        assert (
+            await client.get(
+                "/api/owner/approvals/credentials",
+                headers={"Authorization": "Bearer model"},
+            )
+        ).status_code == 403
         begin = await client.post(
             "/api/owner/approvals/begin",
             headers=alice,

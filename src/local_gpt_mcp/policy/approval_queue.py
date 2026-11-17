@@ -106,6 +106,12 @@ class OwnerApprovalQueue:
                 if entry.action.caller.user_id == owner
             ]
 
+    def credential_ids(self, owner: str) -> list[str]:
+        with self._lock:
+            if owner in self._halted:
+                return []
+            return self._presence.credential_ids(owner)
+
     def begin(self, owner: str, job_id: str, credential_id: str) -> PresenceChallenge:
         """An authenticated owner chooses an EXISTING pending action, not its arguments."""
         with self._lock:

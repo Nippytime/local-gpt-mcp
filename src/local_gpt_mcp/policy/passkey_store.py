@@ -34,6 +34,8 @@ class PasskeyStore(Protocol):
 
     def get(self, credential_id: str) -> PasskeyCredential | None: ...
 
+    def list_owned(self, owner: str) -> list[str]: ...
+
     def advance(self, owner: str, credential_id: str, sign_count: int) -> None: ...
 
 
@@ -74,6 +76,10 @@ class MemoryPasskeys:
     def get(self, credential_id: str) -> PasskeyCredential | None:
         with self._lock:
             return self._entries.get(credential_id)
+
+    def list_owned(self, owner: str) -> list[str]:
+        with self._lock:
+            return sorted(key for key, entry in self._entries.items() if entry.owner == owner)
 
     def advance(self, owner: str, credential_id: str, sign_count: int) -> None:
         with self._lock:
@@ -142,6 +148,14 @@ class SQLitePasskeys:
         except ValueError as error:
             raise RemoteApprovalDenied("Stored owner passkey is invalid") from error
         return PasskeyCredential(owner, key, counter)
+
+    def list_owned(self, owner: str) -> list[str]:
+        with closing(self._connect()) as db:
+            rows = db.execute(
+                "SELECT credential_id FROM passkeys WHERE owner = ? ORDER BY credential_id",
+                (owner,),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
 
     def advance(self, owner: str, credential_id: str, sign_count: int) -> None:
         with closing(self._connect()) as db, db:
