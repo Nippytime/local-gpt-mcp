@@ -125,6 +125,7 @@ def test_never_implicitly_trusts_unselected_windows() -> None:
     with pytest.raises(DeviceUnavailable):
         WindowsClickAdapter(backend, PolicyAuthority(), frozenset())
 
+
 def test_native_click_refuses_new_occlusion_after_cursor_move(monkeypatch: pytest.MonkeyPatch) -> None:
     native = object.__new__(WindowsBackend)
     sent: list[int] = []
@@ -136,6 +137,6 @@ def test_native_click_refuses_new_occlusion_after_cursor_move(monkeypatch: pytes
     )
     native._api = SimpleNamespace(SetCursorPos=lambda point: None)
     monkeypatch.setattr(native, "_send", lambda kind, **kwargs: sent.append(kind))
-    with pytest.raises(DesktopDenied, match="obscured"):
+    with pytest.raises(DesktopDenied, match="obscures"):
         native.click(41, 20, 30)
     assert sent == []

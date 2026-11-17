@@ -294,10 +294,10 @@ class WindowsBackend:
     def click(self, handle: int, x: int, y: int) -> None:
         def guard_point() -> None:
             info = self._guard(handle)
-            if not info.rect.contains(x, y) or self._gui.GetAncestor(
-                self._gui.WindowFromPoint((x, y)), GA_ROOT
-            ) != handle:
-                raise DesktopDenied("Click point moved or is obscured")
+            if not info.rect.contains(x, y):
+                raise DesktopDenied("Click outside selected window")
+            if self._gui.GetAncestor(self._gui.WindowFromPoint((x, y)), GA_ROOT) != handle:
+                raise DesktopDenied("Another window obscures the click location")
 
         guard_point()
         self._api.SetCursorPos((x, y))
