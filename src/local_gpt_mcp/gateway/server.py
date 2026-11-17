@@ -20,8 +20,8 @@ from starlette.applications import Starlette
 from local_gpt_mcp.gateway.agent_api import install_agent_routes
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
-from local_gpt_mcp.gateway.owner_registration import OwnerEnrollmentAPI, install_owner_enrollment_routes
 from local_gpt_mcp.gateway.owner_enroll_page import OwnerEnrollmentPageConfig, install_owner_enrollment_page
+from local_gpt_mcp.gateway.owner_registration import OwnerEnrollmentAPI, install_owner_enrollment_routes
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger
 
