@@ -109,29 +109,44 @@ class DeviceDirectory:
             raise DeviceUnavailable("Device unavailable")
         return current
 
+    def _connected(self, device: DeviceRecord) -> bool:
+        """Live relays must expire offline status without waiting for a new poll.
+
+        Query outside the directory lock: the relay authenticates while holding
+        its own lock and then updates this directory.
+        """
+        probe = getattr(self._transport, "connected", None)
+        return device.online and (probe is None or bool(probe(device.owner, device.device_id)))
+
     def list_owned(self, owner: str) -> list[dict[str, str | bool]]:
         with self._lock:
-            return [
-                {"device_id": device.device_id, "label": device.label, "online": device.online}
+            devices = [
+                device
                 for device in sorted(self._devices.values(), key=lambda item: item.device_id)
                 if device.owner == owner
             ]
+        return [
+            {"device_id": device.device_id, "label": device.label, "online": self._connected(device)}
+            for device in devices
+        ]
 
     def status(self, owner: str, device_id: str) -> dict[str, str | bool]:
         with self._lock:
             device = self._owned(owner, device_id)
-            return {"device_id": device.device_id, "label": device.label, "online": device.online}
+        return {"device_id": device.device_id, "label": device.label, "online": self._connected(device)}
 
     async def read(self, owner: str, device_id: str, request: ReadRequest) -> dict[str, str | int | bool]:
         with self._lock:
-            if not self._owned(owner, device_id).online:
-                raise DeviceUnavailable("Device unavailable")
+            device = self._owned(owner, device_id)
+        if not self._connected(device):
+            raise DeviceUnavailable("Device unavailable")
         # Never share a bearer credential or a local grant with the cloud.
         # The agent must independently authorize a scoped observation.
         result = await self._transport.read(owner, device_id, request)
         with self._lock:
-            if not self._owned(owner, device_id).online:
-                raise DeviceUnavailable("Device disconnected")
+            device = self._owned(owner, device_id)
+        if not self._connected(device):
+            raise DeviceUnavailable("Device disconnected")
         if not isinstance(result, Mapping) or len(result) > 32:
             raise DeviceUnavailable("Untrusted device response")
         if any(

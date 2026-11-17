@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 local-gpt-mcp = "local_gpt_mcp.cli:main"
+local-gpt-agent = "local_gpt_mcp.agent.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

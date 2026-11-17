@@ -16,6 +16,8 @@ from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 
+from local_gpt_mcp.gateway.agent_api import install_agent_routes
+from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 
@@ -75,13 +77,19 @@ def create_gateway(
     *,
     directory: DeviceDirectory | None = None,
     verifier: TokenVerifier | None = None,
+    relay: AgentRelay | None = None,
 ) -> Starlette:
-    """Expose the authenticated MCP server as an HTTP-only ASGI application."""
-    mcp = create_gateway_server(config, directory=directory, verifier=verifier)
+    """Expose the authenticated MCP server plus optional outbound-only agent APIs."""
+    token_verifier = verifier if verifier is not None else JWTVerifier(config)
+    if relay is not None:
+        if directory is None:
+            directory = DeviceDirectory(relay)
+        relay.bind(directory)
+    mcp = create_gateway_server(config, directory=directory, verifier=token_verifier)
     host = urlsplit(config.resource_url).hostname
     assert host is not None
     origin = "https://" + urlsplit(config.resource_url).netloc
-    return mcp.streamable_http_app(
+    app = mcp.streamable_http_app(
         stateless_http=True,
         json_response=True,
         transport_security=TransportSecuritySettings(
@@ -89,6 +97,9 @@ def create_gateway(
             allowed_origins=[origin],
         ),
     )
+    if relay is not None:
+        install_agent_routes(app, relay, token_verifier, config.resource_url)
+    return app
 
 
 def create_from_env() -> Starlette:
@@ -98,4 +109,4 @@ def create_from_env() -> Starlette:
     keys = ["LOCAL_MCP_RESOURCE_URL", "LOCAL_MCP_ISSUER_URL", "LOCAL_MCP_JWKS_URL"]
     if any(not os.environ.get(key) for key in keys):
         raise RuntimeError("Hosted gateway requires an HTTPS resource, issuer and JWKS URL")
-    return create_gateway(GatewayConfig(*(os.environ[key] for key in keys)))
+    return create_gateway(GatewayConfig(*(os.environ[key] for key in keys)), relay=AgentRelay())
