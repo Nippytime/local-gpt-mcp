@@ -72,7 +72,12 @@ class FakeVerifier:
 
 
 @pytest.mark.anyio
-async def test_default_hosting_exposes_no_owner_registration_routes() -> None:
+async def test_default_hosting_exposes_no_owner_registration_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Leftover config never activates the enrollment page without the explicit switch.
+    monkeypatch.setenv("LOCAL_MCP_OWNER_CLIENT_ID", "separate-owner-browser")
+    monkeypatch.setenv("LOCAL_MCP_OWNER_PERMIT_DB", "/missing/private/permits.sqlite")
     app = create_from_env()
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
         assert (await client.get("/owner/enroll")).status_code in (404, 405)
