@@ -107,4 +107,3 @@ def main() -> None:
     except (RuntimeError, OSError, ValueError) as error:
         parser.exit(1, f"Issuer setup refused: {type(error).__name__}\n")
     print(public)
-
