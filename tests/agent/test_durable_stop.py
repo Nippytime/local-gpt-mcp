@@ -21,7 +21,7 @@ def anyio_backend() -> str:
 def ledger(tmp_path: Path) -> SQLiteStopLedger:
     folder = tmp_path / "private"
     folder.mkdir(mode=0o700)
-    return SQLiteStopLedger(folder / "stop.sqlite")
+    return SQLiteStopLedger.provision(folder / "stop.sqlite")
 
 
 def enrolled(guard: SQLiteStopLedger) -> tuple[AgentRelay, DeviceIdentity]:
