@@ -95,9 +95,7 @@ class OwnerPresence:
         self._credentials: dict[str, _Credential] = {}
         self._pending: dict[str, _Pending] = {}
 
-    def register_trusted(
-        self, owner: str, credential_id: str, public_key: ec.EllipticCurvePublicKey
-    ) -> None:
+    def register_trusted(self, owner: str, credential_id: str, public_key: ec.EllipticCurvePublicKey) -> None:
         """INTERNAL pre-enrollment only, never exposed to MCP or public HTTP."""
         if (
             not valid_identifier(owner)
@@ -125,9 +123,7 @@ class OwnerPresence:
             ):
                 raise RemoteApprovalDenied("Owner presence not authorized")
             now = int(self._clock())
-            self._pending = {
-                key: request for key, request in self._pending.items() if request.expiry > now
-            }
+            self._pending = {key: request for key, request in self._pending.items() if request.expiry > now}
             if len(self._pending) >= MAX_PENDING:
                 raise RemoteApprovalDenied("Pending approval limit reached")
             challenge = secrets.token_urlsafe(32)

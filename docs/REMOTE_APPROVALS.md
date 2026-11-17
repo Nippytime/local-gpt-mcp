@@ -16,3 +16,14 @@ This initial change is **only the device-side signed approval verifier**, not a 
 4. Test malicious issuer/key substitution, spoofed user/device/session, changed action/target, replay across restarts, expiry, concurrent STOP, browser/phone user presence, Windows lock/UAC, lost connectivity and real cross-location ChatGPT web invocation.
 
 No public HTTP write or approval endpoint is added by this first commit. Existing high-risk release blockers remain **OPEN**. The complete live two-device flow is required before Issue #23 can close, and actual ChatGPT web operation remains Issue #24.
+
+
+## Verified user-presence building block (active PR #28)
+
+`policy/owner_presence.py` now provides a **trusted service-side ES256 WebAuthn assertion verifier**, not a web login/registration endpoint. Owner and passkey are enrolled via `register_trusted` only by a trusted operator integration. The issuer receives an owner identity from an independently verified caller, binds a single short-lived challenge to a pending `ScopedAction` and registered credential, then checks the actual browser's `webauthn.get` signed assertion against:
+
+- exact HTTPS approval origin and relying-party SHA-256 hash; exact server-held challenge, `webauthn.get` client-data type and no cross-origin assertion;
+- required user-presence (UP) **and** user-verification (UV) authenticator flags, P-256 ECDSA signature, monotonic nonzero sign counter, one-attempt challenge consumption and expiration;
+- owner/credential binding and emergency-stop checks before producing a 30-second exact-action receipt. The device still checks the separately pinned receipt issuer and nonce database.
+
+Deterministic tests generate real P-256 signatures and reject forged keys, foreign origins, missing UV, stale challenges, counter rollback and consumed challenges. **No browser registration ceremony, production durable credential/counter storage, independently authenticated phone UI, trusted pending-relay-job linkage, native input wiring, real two-device session, or deployable hosting is claimed by this unit.** Never expose `begin`, `finish`, `register_trusted` or the receipt signer as MCP tools. Model-controlled web content cannot be treated as the trusted approval UI.

@@ -68,8 +68,12 @@ def test_real_verified_passkey_mints_one_device_verifiable_receipt(tmp_path: Pat
     pending = service.begin("alice", "credential-alice-0001", _action())
     client, authenticator, signature = _signed_assertion(passkey, pending.challenge)
     receipt = service.finish(
-        "alice", "credential-alice-0001", pending.challenge,
-        client_data=client, authenticator_data=authenticator, signature=signature,
+        "alice",
+        "credential-alice-0001",
+        pending.challenge,
+        client_data=client,
+        authenticator_data=authenticator,
+        signature=signature,
     )
     device = RemoteApprovalVerifier(
         signer.public_key(),
@@ -82,8 +86,12 @@ def test_real_verified_passkey_mints_one_device_verifiable_receipt(tmp_path: Pat
         device.verify(receipt, _action())
     with pytest.raises(RemoteApprovalDenied, match="challenge"):
         service.finish(
-            "alice", "credential-alice-0001", pending.challenge,
-            client_data=client, authenticator_data=authenticator, signature=signature,
+            "alice",
+            "credential-alice-0001",
+            pending.challenge,
+            client_data=client,
+            authenticator_data=authenticator,
+            signature=signature,
         )
 
 
@@ -96,18 +104,18 @@ def test_real_verified_passkey_mints_one_device_verifiable_receipt(tmp_path: Pat
         ("https://approval.example.com", "approval.example.com", 0x04),
     ],
 )
-def test_wrong_origin_rp_or_missing_user_verification_denied(
-    origin: str, rp: str, flags: int
-) -> None:
+def test_wrong_origin_rp_or_missing_user_verification_denied(origin: str, rp: str, flags: int) -> None:
     service, passkey, _signer, _clock = _service()
     pending = service.begin("alice", "credential-alice-0001", _action())
-    client, auth, signature = _signed_assertion(
-        passkey, pending.challenge, origin=origin, rp=rp, flags=flags
-    )
+    client, auth, signature = _signed_assertion(passkey, pending.challenge, origin=origin, rp=rp, flags=flags)
     with pytest.raises(RemoteApprovalDenied):
         service.finish(
-            "alice", "credential-alice-0001", pending.challenge,
-            client_data=client, authenticator_data=auth, signature=signature,
+            "alice",
+            "credential-alice-0001",
+            pending.challenge,
+            client_data=client,
+            authenticator_data=auth,
+            signature=signature,
         )
 
 
@@ -121,21 +129,33 @@ def test_other_owner_wrong_signature_expiry_and_replay_fail_closed() -> None:
     forged = wrong_key.sign(auth + hashlib.sha256(client).digest(), ec.ECDSA(hashes.SHA256()))
     with pytest.raises(RemoteApprovalDenied, match="signature"):
         service.finish(
-            "alice", "credential-alice-0001", pending.challenge,
-            client_data=client, authenticator_data=auth, signature=forged,
+            "alice",
+            "credential-alice-0001",
+            pending.challenge,
+            client_data=client,
+            authenticator_data=auth,
+            signature=forged,
         )
     with pytest.raises(RemoteApprovalDenied):
         service.finish(
-            "alice", "credential-alice-0001", pending.challenge,
-            client_data=client, authenticator_data=auth, signature=forged,
+            "alice",
+            "credential-alice-0001",
+            pending.challenge,
+            client_data=client,
+            authenticator_data=auth,
+            signature=forged,
         )
     later = service.begin("alice", "credential-alice-0001", _action())
     clock[0] += 61
     new_client, new_auth, new_sig = _signed_assertion(passkey, later.challenge)
     with pytest.raises(RemoteApprovalDenied):
         service.finish(
-            "alice", "credential-alice-0001", later.challenge,
-            client_data=new_client, authenticator_data=new_auth, signature=new_sig,
+            "alice",
+            "credential-alice-0001",
+            later.challenge,
+            client_data=new_client,
+            authenticator_data=new_auth,
+            signature=new_sig,
         )
 
 
@@ -144,15 +164,23 @@ def test_sign_counter_and_stop_denial() -> None:
     first = service.begin("alice", "credential-alice-0001", _action())
     client, auth, sig = _signed_assertion(passkey, first.challenge, counter=10)
     service.finish(
-        "alice", "credential-alice-0001", first.challenge,
-        client_data=client, authenticator_data=auth, signature=sig,
+        "alice",
+        "credential-alice-0001",
+        first.challenge,
+        client_data=client,
+        authenticator_data=auth,
+        signature=sig,
     )
     second = service.begin("alice", "credential-alice-0001", _action())
     client, auth, sig = _signed_assertion(passkey, second.challenge, counter=9)
     with pytest.raises(RemoteApprovalDenied, match="counter"):
         service.finish(
-            "alice", "credential-alice-0001", second.challenge,
-            client_data=client, authenticator_data=auth, signature=sig,
+            "alice",
+            "credential-alice-0001",
+            second.challenge,
+            client_data=client,
+            authenticator_data=auth,
+            signature=sig,
         )
     signer = ed25519.Ed25519PrivateKey.generate()
     stopped = OwnerPresence(
