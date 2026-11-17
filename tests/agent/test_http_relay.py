@@ -315,7 +315,6 @@ async def test_owner_halt_is_oauth_scoped_and_persistently_denies_agent(
             SQLiteStopLedger(path).require_allowed("alice", agent.identity.device_id)
 
 
-
 @pytest.mark.anyio
 async def test_management_requires_independent_owner_client_even_with_elevated_scope() -> None:
     # A model client granted the management scope by mistake must still fail.

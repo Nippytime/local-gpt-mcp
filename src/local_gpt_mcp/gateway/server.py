@@ -109,9 +109,7 @@ def create_gateway(
         ),
     )
     if relay is not None:
-        install_agent_routes(
-            app, relay, token_verifier, config.resource_url, owner_client_id=owner_client_id
-        )
+        install_agent_routes(app, relay, token_verifier, config.resource_url, owner_client_id=owner_client_id)
     if enrollment_page is not None and owner_enrollment is None:
         raise ValueError("Owner browser UI requires independently authorized enrollment API")
     if owner_enrollment is not None:
