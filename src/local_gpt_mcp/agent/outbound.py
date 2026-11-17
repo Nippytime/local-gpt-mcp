@@ -96,11 +96,12 @@ class OutboundAgent:
             return False
         if not isinstance(job_id, str) or len(job_id) != 32:
             raise DeviceUnavailable("Invalid work identifier")
-        request = ReadRequest(
-            kind=response.get("kind", ""),
-            target=response.get("target", ""),
-            selector=response.get("selector", ""),
-        )
+        kind = response.get("kind")
+        target = response.get("target")
+        selector = response.get("selector", "")
+        if not (isinstance(kind, str) and isinstance(target, str) and isinstance(selector, str)):
+            raise DeviceUnavailable("Invalid scoped device read")
+        request = ReadRequest(kind=kind, target=target, selector=selector)
         try:
             output = await asyncio.wait_for(self.executor.read(request), timeout=6)
         except (DeviceUnavailable, PermissionError, TimeoutError, ValueError):

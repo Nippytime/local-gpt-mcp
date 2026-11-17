@@ -107,7 +107,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
     async def agent_enroll(request: Request) -> JSONResponse:
         data = await _json(request)
         code, device, key = data.get("enrollment_code"), data.get("device_id"), data.get("public_key")
-        if not all(isinstance(value, str) for value in (code, device, key)):
+        if not (isinstance(code, str) and isinstance(device, str) and isinstance(key, str)):
             raise DeviceAuthenticationError("Invalid enrollment request")
         relay.enroll(code, device, key)
         return JSONResponse({"enrolled": True})
