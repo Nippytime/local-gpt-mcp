@@ -12,9 +12,13 @@ import ipaddress
 import socket
 import ssl
 from dataclasses import dataclass
+from typing import cast
 from urllib.parse import urlsplit
 
 from local_gpt_mcp.browser.controller import BrowserDenied, origin_of
+
+type PublicSockaddr = tuple[str, int] | tuple[str, int, int, int]
+type PublicAddress = tuple[int, int, int, str, PublicSockaddr]
 
 MAX_RESPONSE_BYTES = 4_000_000
 MAX_URL_BYTES = 4096
@@ -35,7 +39,7 @@ SAFE_RESPONSE_HEADERS = frozenset(
 )
 
 
-def public_addresses(host: str, port: int) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+def public_addresses(host: str, port: int) -> list[PublicAddress]:
     """Reject the entire DNS answer if ANY address is not publicly routable."""
     try:
         addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
@@ -45,13 +49,23 @@ def public_addresses(host: str, port: int) -> list[tuple[int, int, int, str, tup
             for address in addresses
         ):
             raise BrowserDenied("DNS returned an unsafe destination")
-        return addresses
+        # Filtering to AF_INET/AF_INET6 proves sockaddr is a TCP IP tuple.
+        return [
+            (int(family), int(kind), proto, canon, cast(PublicSockaddr, sockaddr))
+            for family, kind, proto, canon, sockaddr in addresses
+        ]
     except (OSError, ValueError, IndexError) as error:
         raise BrowserDenied("Cannot verify a public destination") from error
 
 
 class PinnedHTTPSConnection(http.client.HTTPSConnection):
     """TCP uses validated IP, TLS verifies the requested original hostname."""
+
+    def __init__(
+        self, host: str, port: int = 443, *, timeout: float = 8, context: ssl.SSLContext | None = None
+    ) -> None:
+        self._tls_context = context if context is not None else ssl.create_default_context()
+        super().__init__(host, port=port, timeout=timeout, context=self._tls_context)
 
     def connect(self) -> None:
         addresses = public_addresses(self.host, self.port)
@@ -60,7 +74,7 @@ class PinnedHTTPSConnection(http.client.HTTPSConnection):
         try:
             channel.settimeout(self.timeout)
             channel.connect(sockaddr)
-            self.sock = self._context.wrap_socket(channel, server_hostname=self.host)
+            self.sock = self._tls_context.wrap_socket(channel, server_hostname=self.host)
         except BaseException:
             channel.close()
             raise
