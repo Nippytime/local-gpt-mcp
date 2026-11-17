@@ -238,6 +238,26 @@ class PolicyAuthority:
                 self._deny("authorize", "unpaired")
             self._record("authorize", "allowed", "scope approved")
 
+    def require_remote_pairing(self, caller: Caller, target: str, capability: Capability) -> None:
+        """Recheck explicit local pairing and STOP immediately before remote input.
+
+        A trusted adapter must invoke this ONLY after consuming an independently
+        signed owner receipt; this method never grants a bearer or auto-pairs.
+        """
+        with self._lock:
+            if self._stopped.is_set():
+                self._deny("remote", "stopped")
+            if (
+                not valid_identifier(caller.user_id)
+                or not valid_identifier(caller.device_id)
+                or not valid_identifier(caller.session_id)
+                or not valid_target(target, frozenset({capability}))
+            ):
+                self._deny("remote", "invalid scope")
+            if PairingRequest(caller.user_id, caller.device_id) not in self._pairings:
+                self._deny("remote", "local pairing required")
+            self._record("remote", "allowed", "locally paired; independent receipt required")
+
     def revoke(self, token: str) -> None:
         with self._lock:
             self._grants.pop(token, None)
