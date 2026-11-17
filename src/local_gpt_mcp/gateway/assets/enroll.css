@@ -1,0 +1,9 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; padding: 1rem; }
+main { max-width: 36rem; margin: 2rem auto; line-height: 1.5; }
+section { border: 1px solid currentColor; border-radius: .5rem; padding: 1rem; margin: 1rem 0; }
+label { display: block; margin-bottom: .5rem; }
+input { box-sizing: border-box; width: 100%; padding: .7rem; margin-bottom: .75rem; font: inherit; }
+button { padding: .65rem 1rem; font: inherit; cursor: pointer; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+#status { min-height: 2rem; font-weight: 600; }
