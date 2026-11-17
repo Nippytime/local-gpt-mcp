@@ -149,9 +149,7 @@ def verify_report_checkout(report: dict[str, Any], root: Path = ROOT) -> bool:
         unchanged = checked_revision(root) == report["source_commit"]
     except (ValueError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         unchanged = False
-    report["checkout_integrity"] = (
-        "verified_before_and_after" if unchanged else "changed_or_unverified"
-    )
+    report["checkout_integrity"] = "verified_before_and_after" if unchanged else "changed_or_unverified"
     return unchanged
 
 
