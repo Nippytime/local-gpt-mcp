@@ -146,7 +146,7 @@ def save_report(report: dict[str, Any], root: Path = ROOT) -> Path:
 def verify_report_checkout(report: dict[str, Any], root: Path = ROOT) -> bool:
     """Keep a successful smoke result from being bound to a changed checkout."""
     try:
-        unchanged = checked_revision(root) == report["source_commit"]
+        unchanged = bool(checked_revision(root) == report["source_commit"])
     except (ValueError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         unchanged = False
     report["checkout_integrity"] = "verified_before_and_after" if unchanged else "changed_or_unverified"
