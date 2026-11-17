@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx2 as httpx
 import pytest
 from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
 from mcp.server.auth.provider import AccessToken
 
 from local_gpt_mcp.gateway.auth import GatewayConfig
@@ -20,7 +21,15 @@ CONFIG = GatewayConfig(
 
 class StubVerifier:
     async def verify_token(self, token: str) -> AccessToken | None:
-        return None
+        if token != "valid-verified-token":
+            return None
+        return AccessToken(
+            token=token,
+            client_id="verified-client",
+            scopes=["devices:read"],
+            resource=CONFIG.resource_url,
+            subject="alice",
+        )
 
 
 @pytest.fixture
@@ -88,3 +97,31 @@ async def test_contextless_and_unscoped_requests_fail_closed(
     monkeypatch.setattr("local_gpt_mcp.gateway.server.get_access_token", lambda: None)
     async with Client(server) as client:
         assert (await client.call_tool("list_my_devices", {})).is_error
+
+
+@pytest.mark.anyio
+async def test_real_authenticated_streamable_http_mcp_client_is_tenant_scoped() -> None:
+    directory = DeviceDirectory()
+    directory.enroll_trusted("alice", "pc-a", "Alice's PC")
+    directory.enroll_trusted("bob", "pc-b", "Bob's PC")
+    app = create_gateway(CONFIG, directory=directory, verifier=StubVerifier())
+    transport = httpx.ASGITransport(app=app)
+
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=transport,
+            base_url=CONFIG.resource_url,
+            headers={"Authorization": "Bearer valid-verified-token"},
+        ) as http_client,
+        Client(streamable_http_client(CONFIG.resource_url, http_client=http_client)) as client,
+    ):
+        tools = {tool.name for tool in (await client.list_tools()).tools}
+        assert tools == {"list_my_devices", "device_status", "read_from_device"}
+        devices = await client.call_tool("list_my_devices", {})
+        assert not devices.is_error
+        assert devices.structured_content == {
+            "devices": [{"device_id": "pc-a", "label": "Alice's PC", "online": False}]
+        }
+        foreign = await client.call_tool("device_status", {"device_id": "pc-b"})
+        assert foreign.is_error
