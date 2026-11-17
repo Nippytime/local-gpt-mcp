@@ -56,7 +56,6 @@ def _counter(previous: int, incoming: int) -> None:
 
 
 class MemoryPasskeys:
-
     def __init__(self) -> None:
         self._entries: dict[str, PasskeyCredential] = {}
         self._lock = threading.RLock()
@@ -86,7 +85,6 @@ class MemoryPasskeys:
 
 
 class SQLitePasskeys:
-
     def __init__(self, path: Path) -> None:
         if (
             not path.is_absolute()
