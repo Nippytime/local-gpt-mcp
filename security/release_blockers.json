@@ -14,6 +14,13 @@
       "status": "open",
       "issue": "https://github.com/Nippytime/local-gpt-mcp/issues/10",
       "evidence": ""
+    },
+    {
+      "id": "WEB_REMOTE_E2E",
+      "severity": "high",
+      "status": "open",
+      "issue": "https://github.com/Nippytime/local-gpt-mcp/issues/24",
+      "evidence": ""
     }
   ]
 }
