@@ -66,7 +66,15 @@ class RemoteActionRelay:
         """ONLY an authenticated, authorized server request may call this."""
         if operation not in ACTION_OPERATIONS or set(parameters) != {"x", "y"}:
             raise DeviceUnavailable("Unsupported remote action")
-        if any(type(parameters[key]) is not int or not 0 <= parameters[key] <= 100_000 for key in ("x", "y")):
+        x, y = parameters["x"], parameters["y"]
+        if (
+            not isinstance(x, int)
+            or isinstance(x, bool)
+            or not 0 <= x <= 100_000
+            or not isinstance(y, int)
+            or isinstance(y, bool)
+            or not 0 <= y <= 100_000
+        ):
             raise DeviceUnavailable("Invalid window click coordinates")
         with self._lock:
             if (

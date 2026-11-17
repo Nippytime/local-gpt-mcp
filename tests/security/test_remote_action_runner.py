@@ -38,7 +38,7 @@ class FakeNative:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str]] = []
 
-    async def execute(self, target: str, operation: str, parameters: Mapping[str, int]) -> dict[str, bool]:
+    async def execute(self, target: str, operation: str, parameters: Mapping[str, int]) -> dict[str, str | int | bool]:
         self.calls.append((target, operation))
         return {"ok": True}
 
