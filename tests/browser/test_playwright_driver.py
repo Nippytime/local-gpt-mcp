@@ -9,7 +9,11 @@ import pytest
 from playwright.async_api import Page
 
 from local_gpt_mcp.browser import BrowserController, BrowserDenied
-from local_gpt_mcp.browser.playwright_driver import WEBRTC_DENIAL_SCRIPT, IsolatedBrowserSession, PlaywrightTab
+from local_gpt_mcp.browser.playwright_driver import (
+    WEBRTC_DENIAL_SCRIPT,
+    IsolatedBrowserSession,
+    PlaywrightTab,
+)
 from local_gpt_mcp.pairing import SessionBroker
 from local_gpt_mcp.policy import PolicyAuthority
 
