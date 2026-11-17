@@ -8,9 +8,9 @@ from __future__ import annotations
 import os
 import sqlite3
 import stat
+from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
-from typing import Iterator
 
 from local_gpt_mcp.policy.authority import AccessDenied, valid_identifier
 
