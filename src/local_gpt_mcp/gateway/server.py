@@ -6,6 +6,7 @@ An agent and trusted remote-approval flow are separate future delivery issues.
 
 from __future__ import annotations
 
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from mcp.server import MCPServer
@@ -20,6 +21,7 @@ from local_gpt_mcp.gateway.agent_api import install_agent_routes
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
+from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger
 
 READ_SCOPE = "devices:read"
 
@@ -109,4 +111,6 @@ def create_from_env() -> Starlette:
     keys = ["LOCAL_MCP_RESOURCE_URL", "LOCAL_MCP_ISSUER_URL", "LOCAL_MCP_JWKS_URL"]
     if any(not os.environ.get(key) for key in keys):
         raise RuntimeError("Hosted gateway requires an HTTPS resource, issuer and JWKS URL")
-    return create_gateway(GatewayConfig(*(os.environ[key] for key in keys)), relay=AgentRelay())
+    stop_path = os.environ.get("LOCAL_MCP_STOP_DB")
+    stops = SQLiteStopLedger(Path(stop_path)) if stop_path is not None else None
+    return create_gateway(GatewayConfig(*(os.environ[key] for key in keys)), relay=AgentRelay(stops=stops))

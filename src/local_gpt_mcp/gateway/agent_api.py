@@ -20,6 +20,7 @@ from starlette.routing import Route
 from local_gpt_mcp.agent.identity import MAX_BODY, DeviceAuthenticationError
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
+from local_gpt_mcp.policy.stop_ledger import StopDenied
 
 OWNER_SCOPE = "devices:manage"
 
@@ -77,7 +78,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
                 ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
                 return await handler(request)
-            except (DeviceAuthenticationError, DeviceUnavailable, ValueError, TypeError):
+            except (DeviceAuthenticationError, DeviceUnavailable, StopDenied, ValueError, TypeError):
                 # Do not disclose ownership, enrollment details or signature results.
                 return JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
 
@@ -102,6 +103,12 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
             raise DeviceAuthenticationError("Device required")
         relay.revoke(owner, device_id)
         return JSONResponse({"revoked": True})
+
+    @safe
+    async def owner_halt(request: Request) -> JSONResponse:
+        owner = await _owner(request, verifier, resource)
+        relay.halt_owner(owner)
+        return JSONResponse({"halted": True})
 
     @safe
     async def agent_enroll(request: Request) -> JSONResponse:
@@ -145,6 +152,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
     app.router.routes[:0] = [
         Route("/api/owner/enrollments", owner_enrollment, methods=["POST"]),
         Route("/api/owner/revoke", owner_revoke, methods=["POST"]),
+        Route("/api/owner/halt", owner_halt, methods=["POST"]),
         Route("/api/agent/enroll", agent_enroll, methods=["POST"]),
         Route("/api/agent/poll", agent_poll, methods=["POST"]),
         Route("/api/agent/result", agent_result, methods=["POST"]),
