@@ -15,8 +15,12 @@ from local_gpt_mcp.agent.outbound import OutboundAgent
 
 
 async def operate(
-    gateway: str, *, pair: bool, approved_input: bool = False,
-    owner_id: str | None = None, window_handle: int | None = None,
+    gateway: str,
+    *,
+    pair: bool,
+    approved_input: bool = False,
+    owner_id: str | None = None,
+    window_handle: int | None = None,
 ) -> None:
     async with httpx.AsyncClient(trust_env=False, follow_redirects=False) as client:
         if pair:
@@ -54,7 +58,8 @@ def main() -> None:
     group.add_argument("--pair", action="store_true", help="Pair this PC with a one-time owner code")
     group.add_argument("--run", action="store_true", help="Connect outbound, deny remote reads by default")
     group.add_argument(
-        "--run-approved-input", action="store_true",
+        "--run-approved-input",
+        action="store_true",
         help="Start visible local safety UI and explicitly authorize a selected window",
     )
     parser.add_argument("--owner-id", help="Exact owner identity verified by the gateway issuer")
