@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 
 import pytest
@@ -38,6 +39,10 @@ def enrolled(guard: SQLiteStopLedger) -> tuple[AgentRelay, DeviceIdentity]:
 
 @pytest.mark.anyio
 async def test_revoked_device_cannot_reconnect_poll_or_read(tmp_path: Path) -> None:
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            ledger(tmp_path)
+        return
     guard = ledger(tmp_path)
     relay, identity = enrolled(guard)
     device_id = identity.device_id
@@ -65,6 +70,10 @@ async def test_revoked_device_cannot_reconnect_poll_or_read(tmp_path: Path) -> N
 
 @pytest.mark.anyio
 async def test_owner_halt_cancels_queued_read_and_blocks_reenrollment(tmp_path: Path) -> None:
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            ledger(tmp_path)
+        return
     guard = ledger(tmp_path)
     relay, identity = enrolled(guard)
     pending = asyncio.create_task(
