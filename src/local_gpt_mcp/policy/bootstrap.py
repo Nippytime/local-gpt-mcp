@@ -45,7 +45,9 @@ class SQLiteBootstrapPermits:
         with self._session() as db:
             if db.execute("PRAGMA user_version").fetchone() != (1,):
                 raise BootstrapDenied("Explicit operator permit provisioning is required")
-            rows = db.execute("SELECT owner, digest, expires_at FROM permits LIMIT ?", (MAX_PERMITS + 1,)).fetchall()
+            rows = db.execute(
+                "SELECT owner, digest, expires_at FROM permits LIMIT ?", (MAX_PERMITS + 1,)
+            ).fetchall()
             if len(rows) > MAX_PERMITS:
                 raise BootstrapDenied("Operator permit capacity exceeded")
             for owner, digest, expires_at in rows:
@@ -180,9 +182,7 @@ class SQLiteBootstrapPermits:
         digest = self._digest(code)
         with self._session() as db, db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute(
-                "SELECT digest, expires_at FROM permits WHERE owner = ?", (owner,)
-            ).fetchone()
+            row = db.execute("SELECT digest, expires_at FROM permits WHERE owner = ?", (owner,)).fetchone()
             if (
                 row is None
                 or not isinstance(row[0], bytes)
