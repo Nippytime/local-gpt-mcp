@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Mapping
+from pathlib import Path
 
 import httpx2 as httpx
 import pytest
@@ -15,6 +16,7 @@ from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 from local_gpt_mcp.gateway.server import create_gateway
+from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger, StopDenied
 
 CONFIG = GatewayConfig(
     resource_url="https://gateway.example.com/mcp",
@@ -236,3 +238,61 @@ async def test_streaming_body_bounds_and_missing_content_length() -> None:
             headers={"Authorization": "Bearer alice"},
         )
         assert denied.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_owner_halt_is_oauth_scoped_and_persistently_denies_agent(
+    tmp_path: Path,
+) -> None:
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    path = private / "stop.sqlite"
+    relay = AgentRelay(stops=SQLiteStopLedger(path))
+    directory = DeviceDirectory(relay)
+    app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
+    ) as client:
+        created = await client.post(
+            "/api/owner/enrollments",
+            json={"label": "Stopped PC"},
+            headers={"Authorization": "Bearer alice"},
+        )
+        claim = created.json()
+        agent = OutboundAgent(
+            DeviceIdentity.generate(claim["device_id"]), "https://gateway.example.com", client=client
+        )
+        await agent.enroll(claim["enrollment_code"])
+        assert not await agent.tick()
+        assert directory.status("alice", agent.identity.device_id)["online"] is True
+        assert (await client.post("/api/owner/halt")).status_code == 403
+        assert (
+            await client.post(
+                "/api/owner/halt",
+                headers={"Authorization": "Bearer alice", "Origin": "https://evil.example"},
+            )
+        ).status_code == 403
+        # A caller can only stop its own verified OAuth subject, not the body-provided owner.
+        assert (
+            await client.post(
+                "/api/owner/halt",
+                json={"owner": "alice"},
+                headers={"Authorization": "Bearer bob"},
+            )
+        ).status_code == 200
+        assert directory.status("alice", agent.identity.device_id)["online"] is True
+        assert (
+            await client.post("/api/owner/halt", headers={"Authorization": "Bearer alice"})
+        ).status_code == 200
+        assert directory.status("alice", agent.identity.device_id)["online"] is False
+        with pytest.raises(DeviceUnavailable):
+            await agent.tick()
+        assert (
+            await client.post(
+                "/api/owner/enrollments",
+                json={"label": "Replay"},
+                headers={"Authorization": "Bearer alice"},
+            )
+        ).status_code == 403
+        with pytest.raises(StopDenied):
+            SQLiteStopLedger(path).require_allowed("alice", agent.identity.device_id)
