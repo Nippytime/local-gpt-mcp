@@ -1,8 +1,4 @@
-"""Operator-managed Ed25519 approval issuer keys; private bytes never leave this host.
-
-Only trusted local operators may provision/load the key. No HTTP/MCP route
-exposes private key bytes, rekeys a running gateway, or issues owner consent.
-"""
+"""Operator-only Ed25519 issuer provisioning; private keys never leave the gateway host."""
 
 from __future__ import annotations
 
