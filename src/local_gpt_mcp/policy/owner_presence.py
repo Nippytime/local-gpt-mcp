@@ -186,7 +186,7 @@ class OwnerPresence:
             if (
                 authenticator_data[:32] != rp_hash
                 or flags & (USER_PRESENT | USER_VERIFIED) != USER_PRESENT | USER_VERIFIED
-                or (credential.sign_count > 0 and counter > 0 and counter <= credential.sign_count)
+                or (credential.sign_count > 0 and counter <= credential.sign_count)
             ):
                 raise RemoteApprovalDenied("Passkey RP, user verification or counter rejected")
             signed = authenticator_data + hashlib.sha256(client_data).digest()

@@ -28,6 +28,7 @@ def action() -> ScopedAction:
         "window:41",
         Capability.WINDOW_INPUT,
         action_fingerprint("window.click", {"x": 12, "y": 34}),
+        "a" * 32,
     )
 
 
@@ -73,6 +74,7 @@ def test_wrong_owner_device_session_target_capability_and_action_denied(tmp_path
         replace(target, target="window:42"),
         replace(target, capability=Capability.WINDOW_READ),
         replace(target, action_sha256=action_fingerprint("window.click", {"x": 13, "y": 34})),
+        replace(target, job_id="b" * 32),
     ]
     for changed in others:
         with pytest.raises(RemoteApprovalDenied, match="exact action"):
@@ -125,6 +127,8 @@ def test_approval_has_no_editable_authority_and_malformed_proofs_fail(tmp_path: 
         with pytest.raises(RemoteApprovalDenied):
             verifier.verify(candidate, target)
     with pytest.raises(RemoteApprovalDenied):
-        ScopedAction(target.caller, "window:0", target.capability, target.action_sha256)
+        ScopedAction(target.caller, "window:0", target.capability, target.action_sha256, target.job_id)
     with pytest.raises(RemoteApprovalDenied):
         action_fingerprint("window.click", {"text": "x" * 5000})
+    with pytest.raises(RemoteApprovalDenied):
+        replace(target, job_id="not-a-relay-job")

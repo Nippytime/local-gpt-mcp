@@ -42,6 +42,7 @@ RECEIPT_FIELDS = frozenset(
         "target",
         "capability",
         "action_sha256",
+        "job_id",
         "nonce",
         "issued_at",
         "expires_at",
@@ -59,6 +60,7 @@ class ScopedAction:
     target: str
     capability: Capability
     action_sha256: str
+    job_id: str
 
     def __post_init__(self) -> None:
         if (
@@ -70,6 +72,8 @@ class ScopedAction:
             or not valid_target(self.target, frozenset({self.capability}))
             or not isinstance(self.action_sha256, str)
             or HEX_DIGEST.fullmatch(self.action_sha256) is None
+            or not isinstance(self.job_id, str)
+            or HEX_NONCE.fullmatch(self.job_id) is None
         ):
             raise RemoteApprovalDenied("Invalid scoped action")
 
@@ -161,6 +165,7 @@ def issue_testable_receipt(
         "target": action.target,
         "capability": action.capability.value,
         "action_sha256": action.action_sha256,
+        "job_id": action.job_id,
         "nonce": secrets.token_hex(16),
         "issued_at": issued_at,
         "expires_at": issued_at + ttl_seconds,
@@ -231,6 +236,7 @@ class RemoteApprovalVerifier:
             or claims["target"] != expected.target
             or claims["capability"] != expected.capability.value
             or claims["action_sha256"] != expected.action_sha256
+            or claims["job_id"] != expected.job_id
         ):
             raise RemoteApprovalDenied("Approval does not match the exact action")
         if self._stopped():

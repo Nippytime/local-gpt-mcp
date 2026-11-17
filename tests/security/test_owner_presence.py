@@ -27,6 +27,7 @@ def _action() -> ScopedAction:
         "window:41",
         Capability.WINDOW_INPUT,
         action_fingerprint("window.click", {"x": 34, "y": 75}),
+        "a" * 32,
     )
 
 
@@ -178,6 +179,17 @@ def test_sign_counter_and_stop_denial() -> None:
             "alice",
             "credential-alice-0001",
             second.challenge,
+            client_data=client,
+            authenticator_data=auth,
+            signature=sig,
+        )
+    third = service.begin("alice", "credential-alice-0001", _action())
+    client, auth, sig = _signed_assertion(passkey, third.challenge, counter=0)
+    with pytest.raises(RemoteApprovalDenied, match="counter"):
+        service.finish(
+            "alice",
+            "credential-alice-0001",
+            third.challenge,
             client_data=client,
             authenticator_data=auth,
             signature=sig,
