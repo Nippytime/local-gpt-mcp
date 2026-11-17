@@ -27,9 +27,17 @@ from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 READ_SCOPE = "devices:read"
 
 
-def _owner() -> str:
+WRITE_SCOPE = "devices:input"
+
+
+def _owner(scope: str = READ_SCOPE) -> str:
     verified = get_access_token()
-    if verified is None or READ_SCOPE not in verified.scopes or not verified.subject:
+    if (
+        verified is None
+        or READ_SCOPE not in verified.scopes
+        or scope not in verified.scopes
+        or not verified.subject
+    ):
         raise DeviceUnavailable("An authenticated owner grant is required")
     return verified.subject
 
@@ -39,6 +47,7 @@ def create_gateway_server(
     *,
     directory: DeviceDirectory | None = None,
     verifier: TokenVerifier | None = None,
+    actions: RemoteActionRelay | None = None,
 ) -> MCPServer:
     """Register tools while keeping every principal derived from verified OAuth."""
     store = directory if directory is not None else DeviceDirectory()
@@ -72,6 +81,21 @@ def create_gateway_server(
         request = ReadRequest(kind=kind, target=target, selector=selector)
         return await store.read(owner, device_id, request)
 
+    if actions is not None:
+
+        @mcp.tool()
+        async def request_device_click(
+            device_id: str, session_id: str, target: str, x: int, y: int
+        ) -> dict[str, str | int | bool]:
+            """Request one click: requires separate owner passkey and local PC policy.
+
+            Never self-approve. Remote actions are disabled in default hosting.
+            """
+            owner = _owner(WRITE_SCOPE)
+            return await actions.request_trusted(
+                owner, device_id, session_id, target, "window.click", {"x": x, "y": y}
+            )
+
     return mcp
 
 
@@ -92,7 +116,7 @@ def create_gateway(
         if directory is None:
             directory = DeviceDirectory(relay)
         relay.bind(directory)
-    mcp = create_gateway_server(config, directory=directory, verifier=token_verifier)
+    mcp = create_gateway_server(config, directory=directory, verifier=token_verifier, actions=actions)
     host = urlsplit(config.resource_url).hostname
     assert host is not None
     origin = "https://" + urlsplit(config.resource_url).netloc
@@ -107,7 +131,7 @@ def create_gateway(
     if relay is not None:
         install_agent_routes(app, relay, token_verifier, config.resource_url, actions=actions)
     if approvals is not None:
-        install_approval_routes(app, approvals, token_verifier, config.resource_url)
+        install_approval_routes(app, approvals, token_verifier, config.resource_url, actions=actions)
     return app
 
 

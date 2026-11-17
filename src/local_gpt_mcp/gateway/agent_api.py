@@ -109,6 +109,8 @@ def install_agent_routes(
         if not isinstance(device_id, str):
             raise DeviceAuthenticationError("Device required")
         relay.revoke(owner, device_id)
+        if actions is not None:
+            actions.revoke_device(owner, device_id)
         return JSONResponse({"revoked": True})
 
     @safe

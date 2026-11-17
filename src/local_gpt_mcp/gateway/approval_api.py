@@ -16,6 +16,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from local_gpt_mcp.agent.identity import DeviceAuthenticationError
+from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.agent_api import _json, _owner
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied, _decode
@@ -28,6 +29,8 @@ def install_approval_routes(
     approvals: OwnerApprovalQueue,
     verifier: TokenVerifier,
     resource: str,
+    *,
+    actions: RemoteActionRelay | None = None,
 ) -> None:
     """Private non-MCP routes with owner token plus mandatory passkey assertions."""
     public = urlsplit(resource)
@@ -112,7 +115,10 @@ def install_approval_routes(
     @safe
     async def halt(request: Request) -> JSONResponse:
         owner = await authenticate(request)
-        approvals.halt_owner(owner)
+        if actions is None:
+            approvals.halt_owner(owner)
+        else:
+            actions.halt_owner(owner)
         return JSONResponse({"approval_queue_halted": True})
 
     # No POST to enqueue/submit jobs; those require a separate trusted relay.
