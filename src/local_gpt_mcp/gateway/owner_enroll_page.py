@@ -86,10 +86,9 @@ def install_owner_enrollment_page(
     }
 
     def allowed(request: Request) -> bool:
-        return (
-            request.headers.get("host", "").casefold() == resource.netloc.casefold()
-            and request.headers.get("origin") in (None, origin)
-        )
+        return request.headers.get(
+            "host", ""
+        ).casefold() == resource.netloc.casefold() and request.headers.get("origin") in (None, origin)
 
     async def document(request: Request) -> Response:
         if not allowed(request):
