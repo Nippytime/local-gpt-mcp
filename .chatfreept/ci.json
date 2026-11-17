@@ -62,6 +62,10 @@
         "-m",
         "build",
         "--no-isolation"
+      ],
+      [
+        "@python",
+        "ci/build_manifest.py"
       ]
     ],
     "audit": [

@@ -20,6 +20,8 @@ python -m build
 Get-ChildItem .\dist\* | Get-FileHash -Algorithm SHA256
 ```
 
+The normal PR build gate now emits `artifacts/ci/build-manifest.json` containing actual wheel/source archive hashes, package version and the full checked Git commit; `dist/` is uploaded alongside the CI JSON reports. These artifacts are **unsigned and not an attestation**. Independently compare the downloaded bytes to their recorded SHA-256 before distributing.
+
 Record the Git commit, workflow run links, GitHub Actions check names/conclusions, build artifact names, hashes, Python version, Windows OS version and release approval in Issue #10. Do not fabricate a signed artifact, timestamp or provenance statement; signed MSI/MSIX and a standalone Windows executable are not currently delivered.
 
 Only after acceptance, propose a PR from verified `dev` into `main` under the repository's release workflow. The production release workflow must report all required checks **completed successfully**, including `Full regression and production build` with the high-risk release blocker check. Pending, missing, zero or failed checks are not passing. Keep `main` unchanged until then.
