@@ -87,3 +87,23 @@ The standard `local-gpt-agent --gateway https://<your-domain> --run` **still den
 5. Per-job cloud consent still requires the *independent* owner OAuth + WebAuthn UV confirmation on a different trusted browser/phone. The device verifies the issuer signature, job/owner/device/session/target/action SHA-256, persistent one-use nonce, local pairing and emergency STOP **before** the guarded Win32 `click`.
 
 This command is only a local bootstrap seam and uses a user-scoped replay database in the same Windows profile. It is not yet a packaged installer, verified native physical acceptance, trusted external issuer/IdP deployment, or a generally available ChatGPT web plugin. The local window selection/STOP UI requires physical user interaction during initial setup, but not for every later remote owner-approved job. On process restart, the operator must approve pairing/window selection again.
+
+
+## Explicitly enabled hosted single-process approval pilot
+
+The default hosted `create_from_env()` **continues to expose read-only MCP tools and an outbound read relay**. An operator can now explicitly compose the already-tested owner portal, trusted WebAuthn assertion verifier, owner pending-action queue, signed outbound agent action relay and `devices:input` MCP click tool into one **single-process pilot** by setting every variable below.
+
+1. On a protected **POSIX** host, provision the issuer using `local-gpt-issuer --create --key-file /private/owner-mcp/issuer.pem`. The parent directory must be owned by the service user and mode 0700; the key is written with O_EXCL and mode 0600 and never overwritten. `local-gpt-issuer --show-public --key-file /private/owner-mcp/issuer.pem` prints only the corresponding public verification pin. Manually verify and install that public value on the Windows PC as `owner-issuer.pub`. **Never upload the issuer private key to the Windows PC, a model, or a connected repository.**
+2. Configure an independently managed issuer with correct RS256 JWT signing, protected-resource audience, registered browser OAuth public client, authorization-code PKCE S256, `approvals:manage` and `devices:input` scope policy, an exact public redirect `https://your-gateway.example/owner/approve`, and permitted owner-app CORS for the token exchange. The browser client's verified JWT client ID is now pinned separately for owner approval API calls, even if an unrelated MCP token has the same scopes.
+3. Supply `LOCAL_MCP_RESOURCE_URL`, `LOCAL_MCP_ISSUER_URL`, `LOCAL_MCP_JWKS_URL` (all mandatory for read-only too) and the explicit pilot configuration:
+   - `LOCAL_MCP_REMOTE_APPROVALS=1`
+   - `LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK=1`
+   - `LOCAL_MCP_APPROVAL_SIGNER_FILE=/private/owner-mcp/issuer.pem`
+   - `LOCAL_MCP_PASSKEY_DB=/private/owner-mcp/passkeys.sqlite`
+   - `LOCAL_MCP_OWNER_CLIENT_ID=registered-browser-public-client`
+   - `LOCAL_MCP_OWNER_AUTHORIZE_URL=https://your-issuer.example/authorize`
+   - `LOCAL_MCP_OWNER_TOKEN_URL=https://your-issuer.example/token`
+
+Any missing, inconsistent, unpinned or unsafe signer/OAuth/database configuration **fails startup** rather than silently opening input. Setting `LOCAL_MCP_REMOTE_APPROVALS=0` (default) leaves all write/owner routes absent. Provisioning and securely verifying the **first actual WebAuthn registration** remains a separate mandatory step; an empty trusted credential store cannot approve anything.
+
+**This is not a production multi-worker deployment:** per-process device enrollment, pending jobs, user STOP flags and device request nonce caches are not durable/shared. Restart drops incomplete requests and device enrollment, and multiple gateway workers do not share the same trusted state. Use one HTTPS worker only for controlled tests. Real passkey enrollment, durable multi-worker agent state, issuer key lifecycle/rotation, real Windows lock/UAC/STOP tests and ChatGPT web-to-PC acceptance are still required before declaring production readiness. Three high-risk release blockers remain open.

@@ -25,13 +25,26 @@ from local_gpt_mcp.gateway.registry import DeviceUnavailable
 OWNER_SCOPE = "devices:manage"
 
 
-async def _owner(request: Request, verify: TokenVerifier, resource: str, *, scope: str = OWNER_SCOPE) -> str:
+async def _owner(
+    request: Request,
+    verify: TokenVerifier,
+    resource: str,
+    *,
+    scope: str = OWNER_SCOPE,
+    client_id: str | None = None,
+) -> str:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token or len(token) > 8192:
         raise DeviceAuthenticationError("Owner authentication required")
     auth: AccessToken | None = await verify.verify_token(token)
-    if auth is None or scope not in auth.scopes or not auth.subject or auth.resource != resource:
+    if (
+        auth is None
+        or scope not in auth.scopes
+        or not auth.subject
+        or auth.resource != resource
+        or (client_id is not None and auth.client_id != client_id)
+    ):
         raise DeviceAuthenticationError("Owner access denied")
     return auth.subject
 

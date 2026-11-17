@@ -31,6 +31,7 @@ def install_approval_routes(
     resource: str,
     *,
     actions: RemoteActionRelay | None = None,
+    owner_client_id: str | None = None,
 ) -> None:
     """Private non-MCP routes with owner token plus mandatory passkey assertions."""
     public = urlsplit(resource)
@@ -56,7 +57,9 @@ def install_approval_routes(
         return call
 
     async def authenticate(request: Request) -> str:
-        return await _owner(request, verifier, resource, scope=APPROVAL_SCOPE)
+        return await _owner(
+            request, verifier, resource, scope=APPROVAL_SCOPE, client_id=owner_client_id
+        )
 
     @safe
     async def list_pending(request: Request) -> JSONResponse:

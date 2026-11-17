@@ -135,17 +135,69 @@ def create_gateway(
     if relay is not None:
         install_agent_routes(app, relay, token_verifier, config.resource_url, actions=actions)
     if approvals is not None:
-        install_approval_routes(app, approvals, token_verifier, config.resource_url, actions=actions)
+        install_approval_routes(
+            app,
+            approvals,
+            token_verifier,
+            config.resource_url,
+            actions=actions,
+            owner_client_id=portal.client_id if portal is not None else None,
+        )
     if portal is not None:
         install_owner_portal(app, config, portal)
     return app
 
 
 def create_from_env() -> Starlette:
-    """A hosted process must supply real operator-controlled identity settings."""
+    """Fail-closed operator configuration; remote approvals are OFF by default.
+
+    Remote mode is a single-process pilot. No worker sharing, issuer rotation,
+    passkey registration or persisted device enrollment is implied.
+    """
     import os
+    from pathlib import Path
 
     keys = ["LOCAL_MCP_RESOURCE_URL", "LOCAL_MCP_ISSUER_URL", "LOCAL_MCP_JWKS_URL"]
     if any(not os.environ.get(key) for key in keys):
         raise RuntimeError("Hosted gateway requires an HTTPS resource, issuer and JWKS URL")
-    return create_gateway(GatewayConfig(*(os.environ[key] for key in keys)), relay=AgentRelay())
+    config = GatewayConfig(*(os.environ[key] for key in keys))
+    mode = os.environ.get("LOCAL_MCP_REMOTE_APPROVALS", "0")
+    if mode == "0":
+        return create_gateway(config, relay=AgentRelay())
+    if mode != "1":
+        raise RuntimeError("Remote approvals must be explicitly enabled with 1 or disabled with 0")
+    if os.environ.get("LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK") != "1":
+        raise RuntimeError("Remote approvals require explicit single-process deployment acknowledgment")
+    required = [
+        "LOCAL_MCP_APPROVAL_SIGNER_FILE",
+        "LOCAL_MCP_PASSKEY_DB",
+        "LOCAL_MCP_OWNER_CLIENT_ID",
+        "LOCAL_MCP_OWNER_AUTHORIZE_URL",
+        "LOCAL_MCP_OWNER_TOKEN_URL",
+    ]
+    if any(not os.environ.get(name) for name in required):
+        raise RuntimeError("Remote approval issuer, passkey store and pinned owner OAuth client are required")
+
+    from local_gpt_mcp.gateway.issuer_keys import load_issuer_key
+    from local_gpt_mcp.policy.owner_presence import OwnerPresence
+    from local_gpt_mcp.policy.passkey_store import SQLitePasskeys
+
+    signer = load_issuer_key(Path(os.environ["LOCAL_MCP_APPROVAL_SIGNER_FILE"]))
+    credentials = SQLitePasskeys(Path(os.environ["LOCAL_MCP_PASSKEY_DB"]))
+    relay = AgentRelay()
+    origin = config.resource_url.removesuffix("/mcp")
+    presence = OwnerPresence(
+        origin=origin,
+        receipt_signer=signer,
+        stopped=lambda: False,
+        credential_store=credentials,
+    )
+    approvals = OwnerApprovalQueue(presence)
+    actions = RemoteActionRelay(approvals, connected=relay.connected)
+    portal = OwnerPortalConfig(
+        client_id=os.environ["LOCAL_MCP_OWNER_CLIENT_ID"],
+        authorization_endpoint=os.environ["LOCAL_MCP_OWNER_AUTHORIZE_URL"],
+        token_endpoint=os.environ["LOCAL_MCP_OWNER_TOKEN_URL"],
+    )
+    portal.validate(config)
+    return create_gateway(config, relay=relay, approvals=approvals, actions=actions, portal=portal)
