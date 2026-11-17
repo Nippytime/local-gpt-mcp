@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from local_gpt_mcp.policy.authority import valid_identifier
+from local_gpt_mcp.policy.passkey_store import MemoryPasskeys, PasskeyStore
 from local_gpt_mcp.policy.remote_receipts import (
     RemoteApprovalDenied,
     ScopedAction,
@@ -40,13 +40,6 @@ class PresenceChallenge:
 
     challenge: str
     expires_at: int
-
-
-@dataclass(slots=True)
-class _Credential:
-    owner: str
-    key: ec.EllipticCurvePublicKey
-    sign_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +64,7 @@ class OwnerPresence:
         receipt_signer: Ed25519PrivateKey,
         stopped: Callable[[], bool],
         clock: Callable[[], float] = time.time,
+        credential_store: PasskeyStore | None = None,
     ) -> None:
         parts = urlsplit(origin)
         if (
@@ -92,23 +86,13 @@ class OwnerPresence:
         self._clock = clock
         self._stopped = stopped
         self._lock = threading.RLock()
-        self._credentials: dict[str, _Credential] = {}
+        self._credentials = credential_store if credential_store is not None else MemoryPasskeys()
         self._pending: dict[str, _Pending] = {}
 
     def register_trusted(self, owner: str, credential_id: str, public_key: ec.EllipticCurvePublicKey) -> None:
         """INTERNAL pre-enrollment only, never exposed to MCP or public HTTP."""
-        if (
-            not valid_identifier(owner)
-            or not isinstance(credential_id, str)
-            or not 16 <= len(credential_id) <= 512
-            or not isinstance(public_key, ec.EllipticCurvePublicKey)
-            or not isinstance(public_key.curve, ec.SECP256R1)
-        ):
-            raise RemoteApprovalDenied("Invalid pre-registered owner passkey")
         with self._lock:
-            if credential_id in self._credentials:
-                raise RemoteApprovalDenied("Passkey already registered")
-            self._credentials[credential_id] = _Credential(owner, public_key)
+            self._credentials.register_trusted(owner, credential_id, public_key)
 
     def begin(self, owner: str, credential_id: str, action: ScopedAction) -> PresenceChallenge:
         """Caller MUST have been authenticated independently of the MCP tool."""
@@ -196,7 +180,7 @@ class OwnerPresence:
                 raise RemoteApprovalDenied("Untrusted passkey signature") from error
             if self._stopped():
                 raise RemoteApprovalDenied("Remote approvals stopped")
-            credential.sign_count = max(credential.sign_count, counter)
+            self._credentials.advance(owner, credential_id, counter)
             receipt = issue_testable_receipt(self._issuer, pending.action, issued_at=now, ttl_seconds=30)
             if self._stopped():
                 raise RemoteApprovalDenied("Remote approvals stopped")
