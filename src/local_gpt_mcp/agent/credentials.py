@@ -11,6 +11,7 @@ import os
 import stat
 import sys
 from pathlib import Path
+from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
@@ -18,7 +19,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption,
 from local_gpt_mcp.agent.identity import DeviceIdentity
 
 
-def _windows_dpapi() -> object:
+def _windows_dpapi() -> Any:
     if sys.platform != "win32":
         raise RuntimeError("Device credentials require a signed-in Windows user and DPAPI")
     import win32crypt

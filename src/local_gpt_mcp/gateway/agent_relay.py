@@ -11,8 +11,8 @@ import hashlib
 import secrets
 import threading
 import time
-from collections.abc import Mapping
-from dataclasses import dataclass, field
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -56,10 +56,8 @@ class _Member:
 class AgentRelay:
     """Own the device read boundary; OAuth users can never call these methods via MCP."""
 
-    def __init__(self, *, clock: object = time.time) -> None:
-        from collections.abc import Callable
-
-        self._clock = clock if isinstance(clock, Callable) else time.time
+    def __init__(self, *, clock: Callable[[], float] = time.time) -> None:
+        self._clock = clock
         self._directory: DeviceDirectory | None = None
         self._enrollments: dict[str, _Enrollment] = {}
         self._members: dict[str, _Member] = {}
@@ -146,9 +144,12 @@ class AgentRelay:
             future: asyncio.Future[Mapping[str, str | int | bool]] = loop.create_future()
             self._jobs[job_id] = _Job(owner, device_id, request, future, self._clock() + READ_SECONDS)
         try:
-            return await asyncio.wait_for(future, timeout=READ_SECONDS)
-        except (TimeoutError, asyncio.CancelledError):
-            raise DeviceUnavailable("Device read expired or cancelled") from None
+            result = await asyncio.wait_for(future, timeout=READ_SECONDS)
+            if "error" in result:
+                raise DeviceUnavailable("The local PC denied the observation")
+            return result
+        except TimeoutError:
+            raise DeviceUnavailable("Device read expired") from None
         finally:
             with self._lock:
                 self._jobs.pop(job_id, None)

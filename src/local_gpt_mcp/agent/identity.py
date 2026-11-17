@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
 import re
@@ -39,7 +40,7 @@ def decode_public_key(value: str) -> Ed25519PublicKey:
         if len(raw) != 32:
             raise ValueError("Unexpected key length")
         return Ed25519PublicKey.from_public_bytes(raw)
-    except (ValueError, TypeError, UnicodeError) as error:
+    except (ValueError, TypeError, UnicodeError, binascii.Error) as error:
         raise DeviceAuthenticationError("Invalid device public key") from error
 
 
@@ -108,7 +109,7 @@ class DeviceReplayGuard:
                 raise DeviceAuthenticationError("Expired or malformed device signature")
             signed = _payload(device_id, "POST", path, timestamp, nonce, body)
             public_key.verify(signature, signed)
-        except (KeyError, ValueError, InvalidSignature, TypeError, UnicodeError) as error:
+        except (KeyError, ValueError, InvalidSignature, TypeError, UnicodeError, binascii.Error) as error:
             raise DeviceAuthenticationError("Invalid device authentication") from error
         with self._lock:
             now = self._clock()
