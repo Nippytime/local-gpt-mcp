@@ -6,7 +6,6 @@ An agent and trusted remote-approval flow are separate future delivery issues.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from mcp.server import MCPServer
