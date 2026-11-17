@@ -97,10 +97,13 @@ def install_agent_routes(
                     "origin"
                 ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
-                return await handler(request)
+                response = await handler(request)
             except (DeviceAuthenticationError, DeviceUnavailable, ValueError, TypeError):
                 # Do not disclose ownership, enrollment details or signature results.
-                return JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
+                response = JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            return response
 
         return call
 

@@ -103,7 +103,7 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
             json={"label": "My PC"},
             headers={"Authorization": "Bearer alice"},
         )
-        assert claim.status_code == 200
+        assert claim.status_code == 200 and claim.headers["cache-control"] == "no-store"
         identity = DeviceIdentity.generate(claim.json()["device_id"])
         agent = OutboundAgent(identity, "https://gateway.example.com", client=client)
         await agent.enroll(claim.json()["enrollment_code"])
@@ -157,7 +157,7 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
         assert "receipt" not in verified.text
 
         delivery = await signed_post(client, identity, "/api/agent/actions/poll", {})
-        assert delivery.status_code == 200
+        assert delivery.status_code == 200 and delivery.headers["cache-control"] == "no-store"
         body = delivery.json()
         assert body["job_id"] == queued["job_id"]
         assert body["operation"] == "window.click"
