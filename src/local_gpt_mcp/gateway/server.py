@@ -182,8 +182,12 @@ def create_from_env() -> Starlette:
     from local_gpt_mcp.policy.owner_presence import OwnerPresence
     from local_gpt_mcp.policy.passkey_store import SQLitePasskeys
 
-    signer = load_issuer_key(Path(os.environ["LOCAL_MCP_APPROVAL_SIGNER_FILE"]))
-    credentials = SQLitePasskeys(Path(os.environ["LOCAL_MCP_PASSKEY_DB"]))
+    issuer_path = Path(os.environ["LOCAL_MCP_APPROVAL_SIGNER_FILE"])
+    passkey_path = Path(os.environ["LOCAL_MCP_PASSKEY_DB"])
+    if passkey_path.parent != issuer_path.parent:
+        raise RuntimeError("Passkey database must share the private issuer directory")
+    signer = load_issuer_key(issuer_path)
+    credentials = SQLitePasskeys(passkey_path)
     relay = AgentRelay()
     origin = config.resource_url.removesuffix("/mcp")
     presence = OwnerPresence(

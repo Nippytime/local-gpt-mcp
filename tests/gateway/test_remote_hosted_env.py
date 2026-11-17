@@ -105,6 +105,10 @@ async def test_explicit_one_host_configuration_loads_portal_and_denies_unenrolle
     monkeypatch.setenv("LOCAL_MCP_OWNER_CLIENT_ID", PORTAL.client_id)
     monkeypatch.setenv("LOCAL_MCP_OWNER_AUTHORIZE_URL", PORTAL.authorization_endpoint)
     monkeypatch.setenv("LOCAL_MCP_OWNER_TOKEN_URL", PORTAL.token_endpoint)
+    monkeypatch.setenv("LOCAL_MCP_PASSKEY_DB", str(tmp_path / "untrusted.sqlite"))
+    with pytest.raises(RuntimeError, match="private issuer directory"):
+        create_from_env()
+    monkeypatch.setenv("LOCAL_MCP_PASSKEY_DB", str(private / "passkeys.sqlite"))
     app = create_from_env()
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
