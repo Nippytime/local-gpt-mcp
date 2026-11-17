@@ -247,7 +247,7 @@ async def test_owner_halt_is_oauth_scoped_and_persistently_denies_agent(
     private = tmp_path / "private"
     private.mkdir(mode=0o700)
     path = private / "stop.sqlite"
-    relay = AgentRelay(stops=SQLiteStopLedger(path))
+    relay = AgentRelay(stops=SQLiteStopLedger.provision(path))
     directory = DeviceDirectory(relay)
     app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
     async with httpx.AsyncClient(
