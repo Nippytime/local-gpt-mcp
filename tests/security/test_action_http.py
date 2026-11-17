@@ -118,13 +118,11 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
         assert before.status_code == 200
         assert before.json() == {"job_id": None}
         forged_device = DeviceIdentity.generate("pc-other")
-        assert (
-            await signed_post(client, forged_device, "/api/agent/actions/poll", {})
-        ).status_code == 403
+        assert (await signed_post(client, forged_device, "/api/agent/actions/poll", {})).status_code == 403
 
-        queued = (await client.get(
-            "/api/owner/approvals", headers={"Authorization": "Bearer alice"}
-        )).json()["approvals"][0]
+        queued = (await client.get("/api/owner/approvals", headers={"Authorization": "Bearer alice"})).json()[
+            "approvals"
+        ][0]
         begin = await client.post(
             "/api/owner/approvals/begin",
             headers={"Authorization": "Bearer alice"},
@@ -142,9 +140,7 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
             separators=(",", ":"),
         ).encode()
         auth_data = hashlib.sha256(b"gateway.example.com").digest() + b"\x05" + (1).to_bytes(4, "big")
-        signature = passkey.sign(
-            auth_data + hashlib.sha256(client_data).digest(), ec.ECDSA(hashes.SHA256())
-        )
+        signature = passkey.sign(auth_data + hashlib.sha256(client_data).digest(), ec.ECDSA(hashes.SHA256()))
         verified = await client.post(
             "/api/owner/approvals/finish",
             headers={"Authorization": "Bearer alice"},
@@ -166,9 +162,7 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
         assert body["job_id"] == queued["job_id"]
         assert body["operation"] == "window.click"
         assert body["parameters"] == {"x": 18, "y": 35}
-        assert (await signed_post(client, identity, "/api/agent/actions/poll", {})).json() == {
-            "job_id": None
-        }
+        assert (await signed_post(client, identity, "/api/agent/actions/poll", {})).json() == {"job_id": None}
         expected = ScopedAction(
             Caller("alice", identity.device_id, "session-1"),
             "window:41",
@@ -183,20 +177,28 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
         )
         verifier.verify(body["receipt"], expected)
         reject = await signed_post(
-            client, forged_device, "/api/agent/actions/result",
+            client,
+            forged_device,
+            "/api/agent/actions/result",
             {"job_id": body["job_id"], "result": {"ok": True}},
         )
         assert reject.status_code == 403
         accepted = await signed_post(
-            client, identity, "/api/agent/actions/result",
+            client,
+            identity,
+            "/api/agent/actions/result",
             {"job_id": body["job_id"], "result": {"ok": True}},
         )
         assert accepted.status_code == 200
         assert await pending == {"ok": True}
-        assert (await signed_post(
-            client, identity, "/api/agent/actions/result",
-            {"job_id": body["job_id"], "result": {"ok": True}},
-        )).status_code == 403
+        assert (
+            await signed_post(
+                client,
+                identity,
+                "/api/agent/actions/result",
+                {"job_id": body["job_id"], "result": {"ok": True}},
+            )
+        ).status_code == 403
 
 
 @pytest.mark.anyio
