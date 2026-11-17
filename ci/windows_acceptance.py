@@ -48,6 +48,16 @@ def checked_revision(root: Path = ROOT) -> str:
     revision = result.stdout.strip()
     if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
         raise ValueError("Unverified checkout revision")
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=normal"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    )
+    if status.stdout:
+        raise ValueError("Working tree is not clean; no source-commit evidence may be issued")
     return revision
 
 
@@ -82,6 +92,7 @@ def new_report(revision: str) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "source_commit": revision,
+        "checkout_integrity": "verified_before_run",
         "recorded_at_utc": dt.datetime.now(dt.UTC).isoformat(),
         "smokes": {name: {"status": "not_run", "exit_code": None} for name, _ in SMOKES},
         "remaining_external_acceptance": list(REMAINING),
@@ -132,6 +143,16 @@ def save_report(report: dict[str, Any], root: Path = ROOT) -> Path:
     return path
 
 
+def verify_report_checkout(report: dict[str, Any], root: Path = ROOT) -> bool:
+    """Keep a successful smoke result from being bound to a changed checkout."""
+    try:
+        unchanged = bool(checked_revision(root) == report["source_commit"])
+    except (ValueError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        unchanged = False
+    report["checkout_integrity"] = "verified_before_and_after" if unchanged else "changed_or_unverified"
+    return unchanged
+
+
 def main() -> int:
     argparse.ArgumentParser(
         description="Collect real local Windows smoke outcomes; never approve a production release"
@@ -149,6 +170,8 @@ def main() -> int:
     except (PermissionError, EOFError, KeyboardInterrupt) as error:
         print(f"Physical acceptance was not completed: {error}", file=sys.stderr)
     finally:
+        if not verify_report_checkout(report):
+            status = 2
         try:
             path = save_report(report)
             print(f"Redacted local smoke record: {path}")
