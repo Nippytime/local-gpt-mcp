@@ -23,13 +23,13 @@ from local_gpt_mcp.gateway.registry import DeviceUnavailable
 OWNER_SCOPE = "devices:manage"
 
 
-async def _owner(request: Request, verify: TokenVerifier) -> str:
+async def _owner(request: Request, verify: TokenVerifier, resource: str) -> str:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token or len(token) > 8192:
         raise DeviceAuthenticationError("Owner authentication required")
     auth: AccessToken | None = await verify.verify_token(token)
-    if auth is None or OWNER_SCOPE not in auth.scopes or not auth.subject:
+    if auth is None or OWNER_SCOPE not in auth.scopes or not auth.subject or auth.resource != resource:
         raise DeviceAuthenticationError("Owner access denied")
     return auth.subject
 
@@ -50,7 +50,9 @@ async def _json(request: Request) -> dict[str, Any]:
     return data
 
 
-def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerifier) -> None:
+def install_agent_routes(
+    app: Starlette, relay: AgentRelay, verifier: TokenVerifier, resource: str
+) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
 
     def safe(handler: Callable[[Request], Awaitable[JSONResponse]]) -> Callable[[Request], Awaitable[JSONResponse]]:
@@ -65,7 +67,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
 
     @safe
     async def owner_enrollment(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier)
+        owner = await _owner(request, verifier, resource)
         data = await _json(request)
         label = data.get("label")
         if not isinstance(label, str):
@@ -75,7 +77,7 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
 
     @safe
     async def owner_revoke(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier)
+        owner = await _owner(request, verifier, resource)
         data = await _json(request)
         device_id = data.get("device_id")
         if not isinstance(device_id, str):
@@ -127,12 +129,13 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
         relay.reply(owner, device_id, job_id, output)
         return JSONResponse({"accepted": True})
 
-    app.router.routes.extend(
-        [
+    # Before generic MCP transport routes: never allow a catch-all mount
+    # to shadow authenticated enrollment or signed agent endpoints.
+    app.router.routes[:0] = [
+
             Route("/api/owner/enrollments", owner_enrollment, methods=["POST"]),
             Route("/api/owner/revoke", owner_revoke, methods=["POST"]),
             Route("/api/agent/enroll", agent_enroll, methods=["POST"]),
             Route("/api/agent/poll", agent_poll, methods=["POST"]),
             Route("/api/agent/result", agent_result, methods=["POST"]),
-        ]
-    )
+    ]
