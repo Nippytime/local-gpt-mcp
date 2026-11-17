@@ -9,13 +9,13 @@ import httpx2 as httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from mcp.server.auth.provider import AccessToken
+from security.test_registration import ORIGIN, fixture
 
 from local_gpt_mcp.gateway.auth import GatewayConfig
 from local_gpt_mcp.gateway.owner_registration import OwnerEnrollmentAPI
 from local_gpt_mcp.gateway.server import create_gateway
 from local_gpt_mcp.policy.bootstrap import BootstrapDenied, SQLiteBootstrapPermits
 from local_gpt_mcp.policy.credential_store import SQLiteCredentialStore
-from security.test_registration import ORIGIN, fixture
 
 CONFIG = GatewayConfig(
     resource_url="https://owner.example.com/mcp",
