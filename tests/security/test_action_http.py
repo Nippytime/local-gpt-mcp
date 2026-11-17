@@ -88,6 +88,7 @@ async def test_signed_agent_receives_one_webauthed_job_and_acks_only_its_own(tmp
         CONFIG,
         directory=directory,
         relay=device_relay,
+        owner_client_id="trusted-browser",
         approvals=approvals,
         actions=actions,
         verifier=OwnerTokens(),

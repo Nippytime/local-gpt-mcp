@@ -234,6 +234,4 @@ def create_from_env() -> Starlette:
         token_endpoint=os.environ["LOCAL_MCP_OWNER_TOKEN_URL"],
     )
     portal.validate(config)
-    return create_gateway(
-        config, relay=relay, owner_client_id=portal.client_id, approvals=approvals, actions=actions, portal=portal
-    )
+    return create_gateway(config, relay=relay, approvals=approvals, actions=actions, portal=portal)
