@@ -22,13 +22,12 @@ def test_build_inventory_records_exact_checksums_and_sorted_artifacts(tmp_path: 
     assert report["signed"] is False
     files = report["artifacts"]
     assert isinstance(files, list) and len(files) == 2
-    assert files[0]["file"] == source.name
-    assert files[1]["file"] == wheel.name
-    assert files[1]["sha256"] == hashlib.sha256(wheel.read_bytes()).hexdigest()
+    assert files[0]["file"] == wheel.name
+    assert files[1]["file"] == source.name
+    assert files[0]["sha256"] == hashlib.sha256(wheel.read_bytes()).hexdigest()
     wheel.write_bytes(b"modified wheel bytes")
-    assert files[1]["sha256"] != inventory([wheel, source], revision=REVISION, version="0.1.0")[
-        "artifacts"
-    ][1]["sha256"]
+    changed = inventory([wheel, source], revision=REVISION, version="0.1.0")
+    assert files[0]["sha256"] != changed["artifacts"][0]["sha256"]
 
 
 @pytest.mark.parametrize("revision", ["abc", "g" * 40, "A" * 40])
