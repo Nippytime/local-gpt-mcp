@@ -7,8 +7,12 @@ Windows lock/UAC/STOP behavior. Do not close any HIGH release blocker from this 
 ## Run on a real Windows 10/11 PC
 
 1. Use a checked-out, trusted repository on the actual PC with **Python 3.12+**
-   and the project's dependencies installed. Open a real interactive PowerShell
-   console **as a standard user**, not an administrator or Windows service.
+   and the project's dependencies installed. Use a **clean Git working tree**
+   with no staged, unstaged or nonignored untracked changes. Check with
+   `git status --short` and review any files before choosing how to handle
+   them; this tool **never** resets, deletes, cleans or stashes local files.
+   Open a real interactive PowerShell console **as a standard user**, not an
+   administrator or Windows service.
    Do not run unattended, over SSH, from Task Scheduler or from a CI runner.
 2. In the checkout, run:
 
@@ -23,8 +27,12 @@ Windows lock/UAC/STOP behavior. Do not close any HIGH release blocker from this 
    its red emergency STOP button. The runner **never** presses STOP for you.
    Any refusal, error or timeout ends the sequence without an automatic retry.
 4. The runner writes `artifacts/acceptance/windows-<UTC>.json` with the full
-   checked source SHA, UTC time and only test names/statuses/exit codes. It
-   does not copy console output, keys, OAuth tokens, passkey contents, typed
+   checked source SHA, UTC time and only test names/statuses/exit codes.
+   It verifies the working tree is clean before and after running the tests,
+   and records `checkout_integrity` as `verified_before_and_after` or
+   `changed_or_unverified`. Any checkout drift denies a successful result;
+   the tool will not auto-revert changes. It does not copy console output,
+   keys, OAuth tokens, passkey contents, typed
    challenges, usernames, filenames from your PC or screenshots. Review it
    locally before sharing a redacted copy in [release Issue #10](https://github.com/Nippytime/local-gpt-mcp/issues/10).
 
