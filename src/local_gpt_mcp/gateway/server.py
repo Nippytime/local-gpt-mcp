@@ -23,6 +23,8 @@ from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.owner_enroll_page import OwnerEnrollmentPageConfig, install_owner_enrollment_page
 from local_gpt_mcp.gateway.owner_registration import OwnerEnrollmentAPI, install_owner_enrollment_routes
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
+from local_gpt_mcp.policy.bootstrap import SQLiteBootstrapPermits
+from local_gpt_mcp.policy.credential_store import SQLiteCredentialStore
 from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger
 
 READ_SCOPE = "devices:read"
@@ -127,10 +129,53 @@ def create_from_env() -> Starlette:
     keys = ["LOCAL_MCP_RESOURCE_URL", "LOCAL_MCP_ISSUER_URL", "LOCAL_MCP_JWKS_URL"]
     if any(not os.environ.get(key) for key in keys):
         raise RuntimeError("Hosted gateway requires an HTTPS resource, issuer and JWKS URL")
+    config = GatewayConfig(*(os.environ[key] for key in keys))
     stop_path = os.environ.get("LOCAL_MCP_STOP_DB")
     stops = SQLiteStopLedger(Path(stop_path)) if stop_path is not None else None
+    client_id = os.environ.get("LOCAL_MCP_OWNER_CLIENT_ID")
+    mode = os.environ.get("LOCAL_MCP_OWNER_ENROLLMENT", "0")
+    if mode == "0":
+        return create_gateway(config, relay=AgentRelay(stops=stops), owner_client_id=client_id)
+    if mode != "1":
+        raise RuntimeError("Owner enrollment must be explicitly enabled with 1 or disabled with 0")
+    if os.environ.get("LOCAL_MCP_OWNER_SINGLE_PROCESS_ACK") != "1":
+        raise RuntimeError("Owner enrollment requires explicit single-worker pilot acknowledgment")
+    required = [
+        "LOCAL_MCP_OWNER_CLIENT_ID",
+        "LOCAL_MCP_OWNER_AUTHORIZE_URL",
+        "LOCAL_MCP_OWNER_TOKEN_URL",
+        "LOCAL_MCP_OWNER_PERMIT_DB",
+        "LOCAL_MCP_PASSKEY_DB",
+    ]
+    if any(not os.environ.get(key) for key in required):
+        raise RuntimeError("Owner enrollment requires an independent OAuth client and private stores")
+    permit_path = Path(os.environ["LOCAL_MCP_OWNER_PERMIT_DB"])
+    credential_path = Path(os.environ["LOCAL_MCP_PASSKEY_DB"])
+    if permit_path == credential_path or permit_path.parent != credential_path.parent:
+        raise RuntimeError(
+            "Operator permit and passkey stores require separate files in one private directory"
+        )
+    permits = SQLiteBootstrapPermits(permit_path)
+    credentials = SQLiteCredentialStore(credential_path)
+    verifier = JWTVerifier(config)
+    assert client_id is not None
+    enrollment = OwnerEnrollmentAPI(
+        config=config,
+        verifier=verifier,
+        permits=permits,
+        credentials=credentials,
+        browser_client_id=client_id,
+    )
+    page = OwnerEnrollmentPageConfig(
+        client_id=client_id,
+        authorization_endpoint=os.environ["LOCAL_MCP_OWNER_AUTHORIZE_URL"],
+        token_endpoint=os.environ["LOCAL_MCP_OWNER_TOKEN_URL"],
+    )
     return create_gateway(
-        GatewayConfig(*(os.environ[key] for key in keys)),
+        config,
         relay=AgentRelay(stops=stops),
-        owner_client_id=os.environ.get("LOCAL_MCP_OWNER_CLIENT_ID"),
+        verifier=verifier,
+        owner_client_id=client_id,
+        owner_enrollment=enrollment,
+        enrollment_page=page,
     )
