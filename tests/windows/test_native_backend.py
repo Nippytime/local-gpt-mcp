@@ -232,6 +232,7 @@ def test_identity_is_bound_to_same_native_process(monkeypatch: pytest.MonkeyPatc
     with pytest.raises(DesktopDenied, match="identity"):
         backend._guard(41)
 
+
 def test_click_releases_button_after_local_stop(monkeypatch: pytest.MonkeyPatch) -> None:
     backend = fake_native(monkeypatch)
     backend.trust_local([41])
