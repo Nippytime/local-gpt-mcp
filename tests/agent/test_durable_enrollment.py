@@ -152,7 +152,9 @@ def test_corrupt_enrollment_record_and_missing_file_fail_startup(tmp_path: Path)
     first, _directory = fresh_relay(path)
     device = pair(first, "alice", "PC")
     with sqlite3.connect(path) as db:
-        db.execute("UPDATE trusted_devices SET public_key = ? WHERE device_id = ?", ("tampered", device.device_id))
+        db.execute(
+            "UPDATE trusted_devices SET public_key = ? WHERE device_id = ?", ("tampered", device.device_id)
+        )
     with pytest.raises(StopDenied):
         fresh_relay(path)
     path.unlink()

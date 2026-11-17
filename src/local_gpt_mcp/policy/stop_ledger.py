@@ -256,8 +256,7 @@ class SQLiteStopLedger:
         """Reload valid non-revoked public keys; caller must mark every PC offline."""
         with self._session() as db:
             rows = db.execute(
-                "SELECT owner, device_id, label, public_key FROM trusted_devices "
-                "ORDER BY device_id LIMIT ?",
+                "SELECT owner, device_id, label, public_key FROM trusted_devices ORDER BY device_id LIMIT ?",
                 (MAX_DEVICES + 1,),
             ).fetchall()
             if len(rows) > MAX_DEVICES:
