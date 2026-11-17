@@ -217,9 +217,7 @@ async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
     """Observe an actual TCP listener, not just an intercepted Playwright route fake."""
     accepted = 0
 
-    async def observe(
-        _reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ) -> None:
+    async def observe(_reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         nonlocal accepted
         accepted += 1
         writer.close()
@@ -231,29 +229,19 @@ async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
         port = listener.sockets[0].getsockname()[1]
         routed: list[str] = []
 
-        def safe_fetch(
-            url: str, origin: str, method: str, _headers: dict[str, str]
-        ) -> PinnedResponse:
+        def safe_fetch(url: str, origin: str, method: str, _headers: dict[str, str]) -> PinnedResponse:
             routed.append(url)
             if origin_of(url) != origin or method != "GET":
                 raise BrowserDenied("Unapproved browser egress")
-            return PinnedResponse(
-                200, {"content-type": "text/html"}, b"<html><body>safe page</body></html>"
-            )
+            return PinnedResponse(200, {"content-type": "text/html"}, b"<html><body>safe page</body></html>")
 
-        monkeypatch.setattr(
-            "local_gpt_mcp.browser.playwright_driver.fetch_public_https", safe_fetch
-        )
+        monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver.fetch_public_https", safe_fetch)
         broker = SessionBroker(PolicyAuthority(Approval()))
         controller = BrowserController(broker)
-        async with IsolatedBrowserSession(
-            "https://example.com", controller, headless=True
-        ) as runtime:
+        async with IsolatedBrowserSession("https://example.com", controller, headless=True) as runtime:
             assert runtime.context is not None
             page = runtime.context.pages[0]
-            await page.goto(
-                "https://example.com/approved", wait_until="domcontentloaded", timeout=10_000
-            )
+            await page.goto("https://example.com/approved", wait_until="domcontentloaded", timeout=10_000)
             assert "safe page" in await page.locator("body").inner_text()
             assert "https://example.com/approved" in routed
 
