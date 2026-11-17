@@ -18,6 +18,10 @@ def private_db(tmp_path: Path) -> Path:
 
 def test_persistent_tenant_scoped_revocation_and_irreversible_halt(tmp_path: Path) -> None:
     path = private_db(tmp_path)
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            SQLiteStopLedger.provision(path)
+        return
     first = SQLiteStopLedger.provision(path)
     second = SQLiteStopLedger(path)
     with pytest.raises(StopDenied):
@@ -40,13 +44,22 @@ def test_persistent_tenant_scoped_revocation_and_irreversible_halt(tmp_path: Pat
 
 @pytest.mark.parametrize("owner,device", [("", None), ("alice", ""), ("alice", "pc with space")])
 def test_invalid_stop_identity_is_denied(tmp_path: Path, owner: str, device: str | None) -> None:
-    ledger = SQLiteStopLedger.provision(private_db(tmp_path))
+    path = private_db(tmp_path)
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            SQLiteStopLedger.provision(path)
+        return
+    ledger = SQLiteStopLedger.provision(path)
     with pytest.raises(StopDenied):
         ledger.require_allowed(owner, device)
 
 
 def test_missing_corrupt_or_repermissioned_store_fails_closed(tmp_path: Path) -> None:
     path = private_db(tmp_path)
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            SQLiteStopLedger.provision(path)
+        return
     ledger = SQLiteStopLedger.provision(path)
     os.chmod(path, 0o644)
     with pytest.raises(StopDenied):
@@ -65,6 +78,10 @@ def test_missing_corrupt_or_repermissioned_store_fails_closed(tmp_path: Path) ->
 
 def test_reject_world_accessible_directory_and_linked_database(tmp_path: Path) -> None:
     path = private_db(tmp_path)
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            SQLiteStopLedger.provision(path)
+        return
     os.chmod(path.parent, 0o755)
     with pytest.raises(StopDenied):
         SQLiteStopLedger(path)
