@@ -245,6 +245,48 @@ async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
             assert "safe page" in await page.locator("body").inner_text()
             assert "https://example.com/approved" in routed
 
+            image_url = f"https://127.0.0.1:{port}/image.png"
+            image_denied = await page.evaluate(
+                """url => new Promise(resolve => {
+                    const image = new Image();
+                    image.onload = () => resolve(false);
+                    image.onerror = () => resolve(true);
+                    image.src = url;
+                })""",
+                image_url,
+            )
+            assert image_denied is True
+            assert image_url in routed
+
+            fetch_url = f"https://127.0.0.1:{port}/resource"
+            fetch_denied = await page.evaluate(
+                """async url => {
+                    try {
+                        await fetch(url, {mode: "no-cors"});
+                        return false;
+                    } catch {
+                        return true;
+                    }
+                }""",
+                fetch_url,
+            )
+            assert fetch_denied is True
+
+            websocket_url = f"wss://127.0.0.1:{port}/socket"
+            websocket_denied = await page.evaluate(
+                """url => Promise.race([
+                    new Promise(resolve => {
+                        const ws = new WebSocket(url);
+                        ws.onopen = () => { ws.close(); resolve(false); };
+                        ws.onerror = () => resolve(true);
+                        ws.onclose = () => resolve(true);
+                    }),
+                    new Promise(resolve => setTimeout(() => resolve(false), 2000))
+                ])""",
+                websocket_url,
+            )
+            assert websocket_denied is True
+
             local_url = f"http://127.0.0.1:{port}/private"
             with pytest.raises(PlaywrightError):
                 await page.goto(local_url, wait_until="domcontentloaded", timeout=5_000)
