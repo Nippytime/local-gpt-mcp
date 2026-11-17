@@ -19,6 +19,13 @@ class StopDenied(AccessDenied):
     """Remote access denied; database internals are not exposed to clients."""
 
 
+def _uid() -> int:
+    getuid = getattr(os, "getuid", None)
+    if getuid is None:
+        raise StopDenied("POSIX owner identity is unavailable")
+    return int(getuid())
+
+
 class SQLiteStopLedger:
     """Irreversible owner/device denial, shared across local worker processes."""
 
@@ -38,8 +45,11 @@ class SQLiteStopLedger:
         fresh = cls.__new__(cls)
         fresh._path = path
         fresh._check_parent()
+        no_follow = getattr(os, "O_NOFOLLOW", None)
+        if no_follow is None:
+            raise StopDenied("Safe POSIX no-follow creation is required")
         try:
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | no_follow, 0o600)
         except OSError as error:
             raise StopDenied("STOP state must be provisioned exactly once") from error
         else:
@@ -61,7 +71,7 @@ class SQLiteStopLedger:
                 parent.is_symlink()
                 or parent.resolve() != parent
                 or not stat.S_ISDIR(meta.st_mode)
-                or meta.st_uid != os.getuid()
+                or meta.st_uid != _uid()
                 or stat.S_IMODE(meta.st_mode) & 0o077
             ):
                 raise StopDenied("STOP state directory must be private")
@@ -75,7 +85,7 @@ class SQLiteStopLedger:
             if (
                 not stat.S_ISREG(meta.st_mode)
                 or meta.st_nlink != 1
-                or meta.st_uid != os.getuid()
+                or meta.st_uid != _uid()
                 or stat.S_IMODE(meta.st_mode) & 0o077
             ):
                 raise StopDenied("STOP state file is unsafe")
