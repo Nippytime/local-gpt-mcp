@@ -21,6 +21,7 @@ from local_gpt_mcp.gateway.agent_api import install_agent_routes
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.approval_api import install_approval_routes
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
+from local_gpt_mcp.gateway.owner_portal import OwnerPortalConfig, install_owner_portal
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 
@@ -107,11 +108,14 @@ def create_gateway(
     relay: AgentRelay | None = None,
     approvals: OwnerApprovalQueue | None = None,
     actions: RemoteActionRelay | None = None,
+    portal: OwnerPortalConfig | None = None,
 ) -> Starlette:
     """Expose the authenticated MCP server plus optional outbound-only agent APIs."""
     token_verifier = verifier if verifier is not None else JWTVerifier(config)
     if actions is not None and (relay is None or approvals is None or actions.approvals is not approvals):
         raise ValueError("Remote action endpoints require the matching trusted relay and approval queue")
+    if portal is not None and approvals is None:
+        raise ValueError("Owner portal requires a separately configured approval queue")
     if relay is not None:
         if directory is None:
             directory = DeviceDirectory(relay)
@@ -132,6 +136,8 @@ def create_gateway(
         install_agent_routes(app, relay, token_verifier, config.resource_url, actions=actions)
     if approvals is not None:
         install_approval_routes(app, approvals, token_verifier, config.resource_url, actions=actions)
+    if portal is not None:
+        install_owner_portal(app, config, portal)
     return app
 
 
