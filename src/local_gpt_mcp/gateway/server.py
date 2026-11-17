@@ -28,13 +28,13 @@ def _owner() -> str:
     return verified.subject
 
 
-def create_gateway(
+def create_gateway_server(
     config: GatewayConfig,
     *,
     directory: DeviceDirectory | None = None,
     verifier: JWTVerifier | None = None,
-) -> Starlette:
-    """Build an HTTP resource server; authentication is enforced by the SDK."""
+) -> MCPServer:
+    """Register tools while keeping every principal derived from verified OAuth."""
     store = directory if directory is not None else DeviceDirectory()
     mcp = MCPServer(
         "Local GPT Web Gateway",
@@ -66,6 +66,17 @@ def create_gateway(
         request = ReadRequest(kind=kind, target=target, selector=selector)
         return await store.read(owner, device_id, request)
 
+    return mcp
+
+
+def create_gateway(
+    config: GatewayConfig,
+    *,
+    directory: DeviceDirectory | None = None,
+    verifier: JWTVerifier | None = None,
+) -> Starlette:
+    """Expose the authenticated MCP server as an HTTP-only ASGI application."""
+    mcp = create_gateway_server(config, directory=directory, verifier=verifier)
     host = urlsplit(config.resource_url).hostname
     assert host is not None
     origin = "https://" + urlsplit(config.resource_url).netloc
