@@ -14,3 +14,4 @@ pywin32==312; sys_platform == "win32"
 psutil>=7.1.0; sys_platform == "win32"
 uiautomation==2.0.29; sys_platform == "win32"
 playwright==1.65.2
+PyJWT[crypto]==2.15.1
