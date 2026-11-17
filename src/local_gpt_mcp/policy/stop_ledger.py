@@ -26,22 +26,32 @@ class SQLiteStopLedger:
         if os.name == "nt" or not path.is_absolute():
             raise StopDenied("A private POSIX stop database is required")
         self._path = path
-        self._check_parent()
+        with self._session() as db:
+            db.execute("SELECT owner FROM halted_owners LIMIT 1")
+            db.execute("SELECT owner FROM revoked_devices LIMIT 1")
+
+    @classmethod
+    def provision(cls, path: Path) -> SQLiteStopLedger:
+        """Explicit first install only; ordinary restarts never reset a missing ledger."""
+        if os.name == "nt" or not path.is_absolute():
+            raise StopDenied("A private POSIX stop database is required")
+        fresh = cls.__new__(cls)
+        fresh._path = path
+        fresh._check_parent()
         try:
             fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-        except FileExistsError:
-            pass
         except OSError as error:
-            raise StopDenied("Cannot provision trusted STOP state") from error
+            raise StopDenied("STOP state must be provisioned exactly once") from error
         else:
             os.close(fd)
-        with self._session() as db, db:
-            db.execute("CREATE TABLE IF NOT EXISTS halted_owners (owner TEXT PRIMARY KEY)")
+        with fresh._session() as db, db:
+            db.execute("CREATE TABLE halted_owners (owner TEXT PRIMARY KEY)")
             db.execute(
-                "CREATE TABLE IF NOT EXISTS revoked_devices ("
+                "CREATE TABLE revoked_devices ("
                 "owner TEXT NOT NULL, device_id TEXT NOT NULL, "
                 "PRIMARY KEY(owner, device_id))"
             )
+        return cls(path)
 
     def _check_parent(self) -> None:
         try:
