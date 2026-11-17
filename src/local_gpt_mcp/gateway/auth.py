@@ -49,6 +49,10 @@ class GatewayConfig:
         jwks = urlsplit(self.jwks_url)
         if (issuer.hostname, issuer.port) != (jwks.hostname, jwks.port):
             raise ValueError("JWKS must reside on the configured identity-provider host")
+        # Pydantic AnyHttpUrl (used by MCP AuthSettings) canonicalizes a bare
+        # issuer origin with a trailing slash; the JWT issuer MUST match it.
+        if not issuer.path:
+            object.__setattr__(self, "issuer_url", self.issuer_url + "/")
 
 
 class JWTVerifier:
