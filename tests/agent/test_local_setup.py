@@ -15,9 +15,7 @@ from local_gpt_mcp.agent import cli, local_setup
 from local_gpt_mcp.agent.identity import DeviceIdentity
 
 
-def test_local_key_missing_linked_invalid_or_valid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_local_key_missing_linked_invalid_or_valid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     key_path = tmp_path / local_setup.USER_KEY_NAME
     monkeypatch.setattr(local_setup, "credential_file", lambda: tmp_path / "device-identity.json")
     monkeypatch.setattr(local_setup.sys, "platform", "win32")
