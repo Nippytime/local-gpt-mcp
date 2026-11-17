@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from mcp import Client
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route
 
 from local_gpt_mcp.browser import BrowserController
+from local_gpt_mcp.browser.controller import BrowserDenied, origin_of
 from local_gpt_mcp.browser.playwright_driver import IsolatedBrowserSession
+from local_gpt_mcp.browser.safe_fetch import PinnedResponse
 from local_gpt_mcp.mcp.server import create_server
 from local_gpt_mcp.orchestrator.models import Step
 from local_gpt_mcp.pairing import SessionBroker
@@ -170,40 +174,84 @@ async def test_real_chromium_isolated_mcp_read_fill_click_and_redaction() -> Non
 async def test_network_route_denies_private_and_cross_origin_requests(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver._public_dns", lambda host: True)
     broker = SessionBroker(PolicyAuthority(Approval()))
     controller = BrowserController(broker)
     runtime = IsolatedBrowserSession("https://example.com", controller, headless=True)
 
+    def fetch(url: str, origin: str, method: str, headers: dict[str, str]) -> PinnedResponse:
+        if origin_of(url) != origin or method != "GET" or "/redirect" in url:
+            raise BrowserDenied("Unsafe or redirected network request")
+        return PinnedResponse(200, {"content-type": "text/plain"}, b"safe")
+
+    monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver.fetch_public_https", fetch)
+
     class RouteFake:
-        def __init__(self, url: str, status: int = 200) -> None:
-            self.request = SimpleNamespace(url=url)
+        def __init__(self, url: str) -> None:
+            self.request = SimpleNamespace(url=url, method="GET", headers={})
             self.result = ""
-            self.status = status
-            self.redirects = -1
 
-        async def fetch(self, *, max_redirects: int, timeout: int) -> SimpleNamespace:
-            self.redirects = max_redirects
-            assert timeout == 10_000
-            return SimpleNamespace(status=self.status)
-
-        async def fulfill(self, *, response: SimpleNamespace) -> None:
-            assert response.status == self.status
+        async def fulfill(self, *, status: int, headers: dict[str, str], body: bytes) -> None:
+            assert status == 200 and body == b"safe"
             self.result = "allowed"
 
         async def abort(self, reason: str) -> None:
             self.result = reason
 
-    for url, status, expected in (
-        ("https://example.com/assets.js", 200, "allowed"),
-        ("https://example.com/redirect", 302, "blockedbyclient"),
-        ("https://sub.example.com/", 200, "blockedbyclient"),
-        ("http://example.com/", 200, "blockedbyclient"),
-        ("http://127.0.0.1/private", 200, "blockedbyclient"),
-        ("https://169.254.169.254/latest/meta-data", 200, "blockedbyclient"),
+    for url, expected in (
+        ("https://example.com/assets.js", "allowed"),
+        ("https://example.com/redirect", "blockedbyclient"),
+        ("https://sub.example.com/", "blockedbyclient"),
+        ("http://example.com/", "blockedbyclient"),
+        ("http://127.0.0.1/private", "blockedbyclient"),
+        ("https://169.254.169.254/latest/meta-data", "blockedbyclient"),
     ):
-        mock = RouteFake(url, status)
-        await runtime._network(mock)  # type: ignore[arg-type]
-        assert mock.result == expected
-        if expected == "allowed":
-            assert mock.redirects == 0
+        route = RouteFake(url)
+        await runtime._network(route)  # type: ignore[arg-type]
+        assert route.result == expected
+
+
+@pytest.mark.anyio
+async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Observe an actual TCP listener, not just an intercepted Playwright route fake."""
+    accepted = 0
+
+    async def observe(_reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        nonlocal accepted
+        accepted += 1
+        writer.close()
+        await writer.wait_closed()
+
+    listener = await asyncio.start_server(observe, "127.0.0.1", 0)
+    try:
+        assert listener.sockets is not None
+        port = listener.sockets[0].getsockname()[1]
+        routed: list[str] = []
+
+        def safe_fetch(url: str, origin: str, method: str, _headers: dict[str, str]) -> PinnedResponse:
+            routed.append(url)
+            if origin_of(url) != origin or method != "GET":
+                raise BrowserDenied("Unapproved browser egress")
+            return PinnedResponse(200, {"content-type": "text/html"}, b"<html><body>safe page</body></html>")
+
+        monkeypatch.setattr("local_gpt_mcp.browser.playwright_driver.fetch_public_https", safe_fetch)
+        broker = SessionBroker(PolicyAuthority(Approval()))
+        controller = BrowserController(broker)
+        async with IsolatedBrowserSession("https://example.com", controller, headless=True) as runtime:
+            assert runtime.context is not None
+            page = runtime.context.pages[0]
+            await page.goto("https://example.com/approved", wait_until="domcontentloaded", timeout=10_000)
+            assert "safe page" in await page.locator("body").inner_text()
+            assert "https://example.com/approved" in routed
+
+            local_url = f"http://127.0.0.1:{port}/private"
+            with pytest.raises(PlaywrightError):
+                await page.goto(local_url, wait_until="domcontentloaded", timeout=5_000)
+            assert local_url in routed
+
+        await asyncio.sleep(0.05)
+        assert accepted == 0, "Chromium must not connect directly to the private listener"
+    finally:
+        listener.close()
+        await listener.wait_closed()
