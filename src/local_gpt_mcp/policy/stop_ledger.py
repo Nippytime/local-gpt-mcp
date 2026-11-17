@@ -14,9 +14,11 @@ from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
 
+from local_gpt_mcp.agent.identity import DeviceAuthenticationError, decode_public_key
 from local_gpt_mcp.policy.authority import AccessDenied, valid_identifier
 
 MAX_NONCES = 20_000
+MAX_DEVICES = 10_000
 NONCE_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 
 
@@ -39,11 +41,12 @@ class SQLiteStopLedger:
             raise StopDenied("A private POSIX stop database is required")
         self._path = path
         with self._session() as db:
-            if db.execute("PRAGMA user_version").fetchone() != (1,):
-                raise StopDenied("Explicit durable nonce schema upgrade required")
+            if db.execute("PRAGMA user_version").fetchone() != (2,):
+                raise StopDenied("Explicit trusted device schema upgrade required")
             db.execute("SELECT owner FROM halted_owners LIMIT 1")
             db.execute("SELECT owner FROM revoked_devices LIMIT 1")
             db.execute("SELECT device_id, nonce, expires_at FROM device_nonces LIMIT 1")
+            db.execute("SELECT owner, device_id, label, public_key FROM trusted_devices LIMIT 1")
 
     @classmethod
     def provision(cls, path: Path) -> SQLiteStopLedger:
@@ -70,6 +73,7 @@ class SQLiteStopLedger:
                 "PRIMARY KEY(owner, device_id))"
             )
             cls._create_nonce_table(db)
+            cls._create_device_table(db)
         return cls(path)
 
     @staticmethod
@@ -81,6 +85,32 @@ class SQLiteStopLedger:
         )
         db.execute("CREATE INDEX device_nonces_expiry ON device_nonces(expires_at)")
         db.execute("PRAGMA user_version = 1")
+
+    @staticmethod
+    def _create_device_table(db: sqlite3.Connection) -> None:
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS trusted_devices ("
+            "device_id TEXT PRIMARY KEY, owner TEXT NOT NULL, "
+            "label TEXT NOT NULL, public_key TEXT NOT NULL)"
+        )
+        db.execute("PRAGMA user_version = 2")
+
+    @classmethod
+    def upgrade_device_store(cls, path: Path) -> SQLiteStopLedger:
+        """Explicit one-way migration of a v1 STOP/nonce ledger to v2 enrollment."""
+        if os.name == "nt" or not path.is_absolute():
+            raise StopDenied("A private POSIX stop database is required")
+        legacy = cls.__new__(cls)
+        legacy._path = path
+        with legacy._session() as db, db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("PRAGMA user_version").fetchone() != (1,):
+                raise StopDenied("Trusted device schema must be upgraded exactly once")
+            db.execute("SELECT owner FROM halted_owners LIMIT 1")
+            db.execute("SELECT owner FROM revoked_devices LIMIT 1")
+            db.execute("SELECT device_id, nonce, expires_at FROM device_nonces LIMIT 1")
+            cls._create_device_table(db)
+        return cls(path)
 
     @classmethod
     def upgrade_nonce_store(cls, path: Path) -> SQLiteStopLedger:
@@ -96,6 +126,7 @@ class SQLiteStopLedger:
             db.execute("SELECT owner FROM halted_owners LIMIT 1")
             db.execute("SELECT owner FROM revoked_devices LIMIT 1")
             cls._create_nonce_table(db)
+            cls._create_device_table(db)
         return cls(path)
 
     def _check_parent(self) -> None:
@@ -194,3 +225,59 @@ class SQLiteStopLedger:
                 (device_id, nonce, expires_at),
             )
             return inserted.rowcount == 1
+
+    def register_trusted_device(self, owner: str, device_id: str, label: str, public_key: str) -> None:
+        """Persist only an OAuth/one-time-code authorized device public key."""
+        self._identity(owner, device_id)
+        if not isinstance(label, str) or not 0 < len(label) <= 80:
+            raise StopDenied("Invalid device label")
+        try:
+            decode_public_key(public_key)
+        except DeviceAuthenticationError as error:
+            raise StopDenied("Invalid device public key") from error
+        with self._session() as db, db:
+            db.execute("BEGIN IMMEDIATE")
+            blocked = db.execute(
+                "SELECT EXISTS(SELECT 1 FROM halted_owners WHERE owner = ?) OR "
+                "EXISTS(SELECT 1 FROM revoked_devices WHERE owner = ? AND device_id = ?)",
+                (owner, owner, device_id),
+            ).fetchone()
+            if blocked is None or blocked[0]:
+                raise StopDenied("Owner or device is stopped")
+            count = db.execute("SELECT COUNT(*) FROM trusted_devices").fetchone()
+            if count is None or count[0] >= MAX_DEVICES:
+                raise StopDenied("Trusted device capacity exhausted")
+            db.execute(
+                "INSERT INTO trusted_devices(device_id, owner, label, public_key) VALUES (?, ?, ?, ?)",
+                (device_id, owner, label, public_key),
+            )
+
+    def list_trusted_devices(self) -> list[tuple[str, str, str, str]]:
+        """Reload valid non-revoked public keys; caller must mark every PC offline."""
+        with self._session() as db:
+            rows = db.execute(
+                "SELECT owner, device_id, label, public_key FROM trusted_devices "
+                "ORDER BY device_id LIMIT ?",
+                (MAX_DEVICES + 1,),
+            ).fetchall()
+            if len(rows) > MAX_DEVICES:
+                raise StopDenied("Trusted device capacity exhausted")
+            enabled = db.execute(
+                "SELECT td.owner, td.device_id FROM trusted_devices td "
+                "WHERE NOT EXISTS(SELECT 1 FROM halted_owners h WHERE h.owner = td.owner) "
+                "AND NOT EXISTS(SELECT 1 FROM revoked_devices r "
+                "WHERE r.owner = td.owner AND r.device_id = td.device_id)"
+            ).fetchall()
+        permitted = {(owner, device_id) for owner, device_id in enabled}
+        result: list[tuple[str, str, str, str]] = []
+        for owner, device_id, label, public_key in rows:
+            self._identity(owner, device_id)
+            if not isinstance(label, str) or not 0 < len(label) <= 80:
+                raise StopDenied("Invalid persisted device label")
+            try:
+                decode_public_key(public_key)
+            except DeviceAuthenticationError as error:
+                raise StopDenied("Invalid persisted device public key") from error
+            if (owner, device_id) in permitted:
+                result.append((owner, device_id, label, public_key))
+        return result

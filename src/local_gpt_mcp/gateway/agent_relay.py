@@ -73,6 +73,12 @@ class AgentRelay:
     def bind(self, directory: DeviceDirectory) -> None:
         if self._directory is not None:
             raise RuntimeError("Agent relay is already bound")
+        restored: dict[str, _Member] = {}
+        if self._stops is not None:
+            for owner, device_id, label, public_key in self._stops.list_trusted_devices():
+                directory.enroll_trusted(owner, device_id, label)
+                restored[device_id] = _Member(owner, decode_public_key(public_key))
+        self._members.update(restored)
         self._directory = directory
 
     def _allow(self, owner: str, device_id: str | None = None) -> None:
@@ -107,6 +113,8 @@ class AgentRelay:
             if self._directory is None:
                 raise DeviceAuthenticationError("No trusted directory")
             self._allow(entry.owner, device_id)
+            if self._stops is not None:
+                self._stops.register_trusted_device(entry.owner, device_id, entry.label, public_key)
             self._directory.enroll_trusted(entry.owner, device_id, entry.label)
             self._members[device_id] = _Member(entry.owner, key)
 
