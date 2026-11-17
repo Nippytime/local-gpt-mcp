@@ -136,9 +136,7 @@ def test_timeout_is_fail_closed_and_never_retried() -> None:
 
 
 
-def test_checkout_revision_requires_clean_worktree(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_checkout_revision_requires_clean_worktree(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
     def git(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
@@ -160,25 +158,25 @@ def test_checkout_revision_requires_clean_worktree(
 
 @pytest.mark.parametrize(
     "dirty",
-    [" M ci/windows_acceptance.py\n", "M  tests/windows/manual_smoke.py\n",
-     "?? tests/windows/untracked.py\n", " D docs/WINDOWS_ACCEPTANCE.md\n"],
+    [
+        " M ci/windows_acceptance.py\n",
+        "M  tests/windows/manual_smoke.py\n",
+        "?? tests/windows/untracked.py\n",
+        " D docs/WINDOWS_ACCEPTANCE.md\n",
+    ],
 )
 def test_checkout_refuses_dirty_staged_unstaged_and_untracked(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, dirty: str
 ) -> None:
     def git(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(
-            args, 0, stdout=SHA + "\n" if args[1] == "rev-parse" else dirty
-        )
+        return subprocess.CompletedProcess(args, 0, stdout=SHA + "\n" if args[1] == "rev-parse" else dirty)
 
     monkeypatch.setattr("ci.windows_acceptance.subprocess.run", git)
     with pytest.raises(ValueError, match="not clean"):
         checked_revision(tmp_path)
 
 
-def test_checkout_refuses_failed_git_status(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_checkout_refuses_failed_git_status(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def git(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         if args[1] == "status":
             raise subprocess.CalledProcessError(128, args)
@@ -227,7 +225,9 @@ def test_runner_does_not_report_success_after_midrun_checkout_change(
     monkeypatch.setattr(runner, "checked_revision", lambda root=runner.ROOT: next(revisions))
     monkeypatch.setattr(runner, "require_local_operator", lambda: None)
     monkeypatch.setattr(runner, "run_smokes", lambda report, **kwargs: 0)
-    monkeypatch.setattr(runner, "save_report", lambda report: recorded.append(report.copy()) or Path("record.json"))
+    monkeypatch.setattr(
+        runner, "save_report", lambda report: recorded.append(report.copy()) or Path("record.json")
+    )
     monkeypatch.setattr("sys.argv", ["windows_acceptance"])
     assert runner.main() == 2
     assert recorded[0]["checkout_integrity"] == "changed_or_unverified"
