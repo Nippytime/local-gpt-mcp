@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from local_gpt_mcp.policy.owner_presence import OwnerPresence, PresenceChallenge
 from local_gpt_mcp.policy.remote_receipts import (

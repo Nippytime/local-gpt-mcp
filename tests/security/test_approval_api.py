@@ -72,7 +72,9 @@ def _signed(key: ec.EllipticCurvePrivateKey, challenge: str) -> dict[str, str]:
 def _fixture() -> tuple[
     Starlette, OwnerApprovalQueue, ScopedAction, ec.EllipticCurvePrivateKey, ed25519.Ed25519PrivateKey
 ]:
-    clock = lambda: 2_000_000_000.0
+    def clock() -> float:
+        return 2_000_000_000.0
+
     signer = ed25519.Ed25519PrivateKey.generate()
     key = ec.generate_private_key(ec.SECP256R1())
     presence = OwnerPresence(

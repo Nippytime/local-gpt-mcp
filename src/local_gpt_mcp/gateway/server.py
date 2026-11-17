@@ -17,8 +17,8 @@ from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 
 from local_gpt_mcp.gateway.agent_api import install_agent_routes
-from local_gpt_mcp.gateway.approval_api import install_approval_routes
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
+from local_gpt_mcp.gateway.approval_api import install_approval_routes
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
