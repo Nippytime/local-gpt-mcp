@@ -135,7 +135,6 @@ def test_timeout_is_fail_closed_and_never_retried() -> None:
     assert report["smokes"]["safety_panel_stop"]["status"] == "not_run"
 
 
-
 def test_checkout_revision_requires_clean_worktree(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
