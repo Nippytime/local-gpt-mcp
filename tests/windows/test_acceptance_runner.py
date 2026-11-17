@@ -12,10 +12,12 @@ import pytest
 from ci.windows_acceptance import (
     OPEN_BLOCKERS,
     SMOKES,
+    checked_revision,
     new_report,
     require_standard_user,
     run_smokes,
     save_report,
+    verify_report_checkout,
 )
 
 SHA = "a" * 40
@@ -131,3 +133,102 @@ def test_timeout_is_fail_closed_and_never_retried() -> None:
     assert calls == [1]
     assert report["smokes"]["local_desktop"]["status"] == "timeout"
     assert report["smokes"]["safety_panel_stop"]["status"] == "not_run"
+
+
+
+def test_checkout_revision_requires_clean_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[list[str]] = []
+
+    def git(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        assert kwargs["cwd"] == tmp_path
+        assert kwargs["capture_output"] is True
+        assert kwargs["check"] is True
+        assert kwargs["timeout"] == 10
+        stdout = SHA + "\n" if args[1] == "rev-parse" else ""
+        return subprocess.CompletedProcess(args, 0, stdout=stdout)
+
+    monkeypatch.setattr("ci.windows_acceptance.subprocess.run", git)
+    assert checked_revision(tmp_path) == SHA
+    assert calls == [
+        ["git", "rev-parse", "HEAD"],
+        ["git", "status", "--porcelain=v1", "--untracked-files=normal"],
+    ]
+
+
+@pytest.mark.parametrize(
+    "dirty",
+    [" M ci/windows_acceptance.py\n", "M  tests/windows/manual_smoke.py\n",
+     "?? tests/windows/untracked.py\n", " D docs/WINDOWS_ACCEPTANCE.md\n"],
+)
+def test_checkout_refuses_dirty_staged_unstaged_and_untracked(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, dirty: str
+) -> None:
+    def git(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args, 0, stdout=SHA + "\n" if args[1] == "rev-parse" else dirty
+        )
+
+    monkeypatch.setattr("ci.windows_acceptance.subprocess.run", git)
+    with pytest.raises(ValueError, match="not clean"):
+        checked_revision(tmp_path)
+
+
+def test_checkout_refuses_failed_git_status(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def git(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if args[1] == "status":
+            raise subprocess.CalledProcessError(128, args)
+        return subprocess.CompletedProcess(args, 0, stdout=SHA + "\n")
+
+    monkeypatch.setattr("ci.windows_acceptance.subprocess.run", git)
+    with pytest.raises(subprocess.CalledProcessError):
+        checked_revision(tmp_path)
+
+
+def test_report_rechecks_revision_after_manual_smokes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    report = new_report(SHA)
+    monkeypatch.setattr("ci.windows_acceptance.checked_revision", lambda root: SHA)
+    assert verify_report_checkout(report)
+    assert report["checkout_integrity"] == "verified_before_and_after"
+    assert report["release_ready"] is False
+
+
+@pytest.mark.parametrize("changed", ["b" * 40, None])
+def test_checkout_change_or_unverified_git_denies_report(
+    monkeypatch: pytest.MonkeyPatch, changed: str | None
+) -> None:
+    report = new_report(SHA)
+
+    def revision(root: Path) -> str:
+        if changed is None:
+            raise ValueError("Cannot verify status")
+        return changed
+
+    monkeypatch.setattr("ci.windows_acceptance.checked_revision", revision)
+    assert not verify_report_checkout(report)
+    assert report["checkout_integrity"] == "changed_or_unverified"
+    assert report["high_blockers"] == dict.fromkeys(OPEN_BLOCKERS, "open")
+
+
+def test_runner_does_not_report_success_after_midrun_checkout_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ci import windows_acceptance as runner
+
+    revisions = iter([SHA, "b" * 40])
+    recorded: list[dict[str, Any]] = []
+
+    monkeypatch.setattr(runner, "checked_revision", lambda root=runner.ROOT: next(revisions))
+    monkeypatch.setattr(runner, "require_local_operator", lambda: None)
+    monkeypatch.setattr(runner, "run_smokes", lambda report, **kwargs: 0)
+    monkeypatch.setattr(runner, "save_report", lambda report: recorded.append(report.copy()) or Path("record.json"))
+    monkeypatch.setattr("sys.argv", ["windows_acceptance"])
+    assert runner.main() == 2
+    assert recorded[0]["checkout_integrity"] == "changed_or_unverified"
+    assert recorded[0]["release_ready"] is False
