@@ -133,6 +133,8 @@ class SQLiteStopLedger:
         try:
             with closing(sqlite3.connect(f"{self._path.as_uri()}?mode=rw", uri=True, timeout=5)) as db:
                 yield db
+        except StopDenied:
+            raise
         except (sqlite3.Error, OSError) as error:
             raise StopDenied("STOP state unavailable") from error
 

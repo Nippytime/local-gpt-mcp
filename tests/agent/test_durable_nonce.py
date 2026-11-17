@@ -72,6 +72,7 @@ def test_concurrent_claims_are_atomic_and_bounded(tmp_path: Path, monkeypatch: p
         return
     SQLiteStopLedger.provision(path)
     nonce = "a" * 32
+
     def claim(_: int) -> bool:
         return SQLiteStopLedger(path).consume_device_nonce("pc-alice", nonce, now=1000, expires_at=1001)
 

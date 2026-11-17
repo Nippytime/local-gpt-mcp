@@ -95,9 +95,7 @@ class NonceStore(Protocol):
 class DeviceReplayGuard:
     """Bounded replay protection: private shared ledger when configured, otherwise in-memory."""
 
-    def __init__(
-        self, *, clock: Callable[[], float] = time.time, store: NonceStore | None = None
-    ) -> None:
+    def __init__(self, *, clock: Callable[[], float] = time.time, store: NonceStore | None = None) -> None:
         self._clock = clock
         self._store = store
         self._lock = threading.Lock()
