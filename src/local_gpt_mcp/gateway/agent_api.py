@@ -44,8 +44,8 @@ async def _owner(
         or scope not in auth.scopes
         or not auth.subject
         or auth.resource != resource
-        or (scope == OWNER_SCOPE and client_id is None)
-        or (client_id is not None and auth.client_id != client_id)
+        or client_id is None
+        or auth.client_id != client_id
     ):
         raise DeviceAuthenticationError("Owner access denied")
     return auth.subject
