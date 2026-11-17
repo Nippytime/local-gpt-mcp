@@ -16,7 +16,7 @@ from local_gpt_mcp.policy.bootstrap import (
     first_owner_registration,
     main,
 )
-from local_gpt_mcp.policy.credential_store import CredentialStoreDenied, SQLiteCredentialStore
+from local_gpt_mcp.policy.credential_store import SQLiteCredentialStore
 from local_gpt_mcp.policy.registration import RegistrationDenied
 from security.test_registration import ORIGIN, fixture
 

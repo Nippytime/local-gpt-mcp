@@ -80,7 +80,8 @@ class SQLiteBootstrapPermits:
             os.close(fd)
         with initial._session() as db, db:
             db.execute(
-                "CREATE TABLE permits (owner TEXT PRIMARY KEY, digest BLOB NOT NULL, expires_at REAL NOT NULL)"
+                "CREATE TABLE permits (owner TEXT PRIMARY KEY, digest BLOB NOT NULL, "
+                "expires_at REAL NOT NULL)"
             )
             db.execute("PRAGMA user_version = 1")
         return cls(path)
