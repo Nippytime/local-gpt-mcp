@@ -17,7 +17,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from local_gpt_mcp.agent.identity import DeviceAuthenticationError, MAX_BODY
+from local_gpt_mcp.agent.identity import MAX_BODY, DeviceAuthenticationError
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
 

@@ -7,7 +7,7 @@ import time
 import pytest
 
 from local_gpt_mcp.agent.identity import DeviceIdentity, sign_request
-from local_gpt_mcp.gateway.agent_relay import AgentRelay, HEARTBEAT_SECONDS
+from local_gpt_mcp.gateway.agent_relay import HEARTBEAT_SECONDS, AgentRelay
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
 
 

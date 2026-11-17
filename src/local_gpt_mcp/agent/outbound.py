@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Mapping
 from typing import Protocol
 from urllib.parse import urlsplit
 
