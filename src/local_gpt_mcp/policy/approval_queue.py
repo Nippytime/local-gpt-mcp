@@ -37,7 +37,9 @@ class OwnerApprovalQueue:
         presence: OwnerPresence,
         *,
         clock: Callable[[], float] = time.time,
+        connected: Callable[[str, str], bool] | None = None,
     ) -> None:
+        self._connected = connected
         self._presence = presence
         self._clock = clock
         self._lock = threading.RLock()
@@ -54,6 +56,8 @@ class OwnerApprovalQueue:
         entry = self._pending.get(job_id)
         if entry is None or entry.action.caller.user_id != owner:
             raise RemoteApprovalDenied("Approval is unavailable")
+        if self._connected is not None and not self._connected(owner, entry.action.caller.device_id):
+            raise RemoteApprovalDenied("Owner approval stopped or device disconnected")
         return entry
 
     def offer_trusted(

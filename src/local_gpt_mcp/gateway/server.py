@@ -214,6 +214,8 @@ def create_from_env() -> Starlette:
         passkey_path = Path(os.environ["LOCAL_MCP_PASSKEY_DB"])
         if passkey_path.parent != issuer_path.parent:
             raise RuntimeError("Passkey database must share the private issuer directory")
+        if stops is None:
+            raise RuntimeError("Remote approvals require a durable STOP ledger")
         signer = load_issuer_key(issuer_path)
         approval_credentials = SQLitePasskeys(passkey_path)
         origin = config.resource_url.removesuffix("/mcp")
@@ -223,7 +225,7 @@ def create_from_env() -> Starlette:
             stopped=lambda: False,
             credential_store=approval_credentials,
         )
-        approvals = OwnerApprovalQueue(presence)
+        approvals = OwnerApprovalQueue(presence, connected=relay.connected)
         actions = RemoteActionRelay(approvals, connected=relay.connected)
         portal = OwnerPortalConfig(
             client_id=os.environ["LOCAL_MCP_OWNER_CLIENT_ID"],

@@ -14,6 +14,7 @@ from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.owner_presence import OwnerPresence
+from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied
 
 CREDENTIAL = "credential-alice-0001"
 
@@ -35,7 +36,8 @@ async def test_approved_job_dispatches_once_and_is_exactly_bound() -> None:
         clock=lambda: clock[0],
     )
     presence.register_trusted("alice", CREDENTIAL, key.public_key())
-    approvals = OwnerApprovalQueue(presence, clock=lambda: clock[0])
+    live = [True]
+    approvals = OwnerApprovalQueue(presence, clock=lambda: clock[0], connected=lambda _o, _d: live[0])
     relay = RemoteActionRelay(
         approvals,
         connected=lambda owner, device: owner == "alice" and device == "pc-alice",
@@ -66,6 +68,11 @@ async def test_approved_job_dispatches_once_and_is_exactly_bound() -> None:
     ).encode()
     auth = hashlib.sha256(b"approval.example.com").digest() + b"\x05" + (1).to_bytes(4, "big")
     signature = key.sign(auth + hashlib.sha256(client).digest(), ec.ECDSA(hashes.SHA256()))
+    live[0] = False
+    with pytest.raises(RemoteApprovalDenied, match="disconnected"):
+        approvals.finish("alice", str(request["job_id"]), CREDENTIAL, challenge.challenge,
+            client_data=client, authenticator_data=auth, signature=signature)
+    live[0] = True
     approvals.finish(
         "alice",
         str(request["job_id"]),

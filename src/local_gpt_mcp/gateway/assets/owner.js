@@ -10,7 +10,6 @@ function base64url(bytes) {
   for (const byte of bytes) data += String.fromCharCode(byte);
   return btoa(data).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
-
 function fromBase64url(encoded) {
   if (typeof encoded !== "string" || !/^[a-zA-Z0-9_-]+$/.test(encoded)) {
     throw new Error("A real registered WebAuthn credential is required");
@@ -21,7 +20,6 @@ function fromBase64url(encoded) {
 async function digest(data) {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", data));
 }
-
 async function signIn() {
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
   const state = base64url(crypto.getRandomValues(new Uint8Array(32)));
@@ -38,7 +36,6 @@ async function signIn() {
   url.searchParams.set("code_challenge_method", "S256");
   location.assign(url.toString());
 }
-
 async function finishSignIn() {
   const params = new URLSearchParams(location.search);
   if (!params.has("code") && !params.has("error")) return false;
@@ -92,7 +89,6 @@ function row(label, value, parent) {
   dd.textContent = String(value);
   parent.append(dt, dd);
 }
-
 function requestCard(request) {
   const card = document.createElement("article");
   const title = document.createElement("h3");
@@ -159,7 +155,6 @@ async function confirmAction(jobId, credentialId) {
   status("Owner approval recorded for one action. Your PC still applies its local safety checks.");
   await refresh();
 }
-
 async function refresh() {
   if (!accessToken) return;
   const [keys, requests] = await Promise.all([
@@ -177,7 +172,6 @@ async function refresh() {
   }
   if (!credentialIds.length) status("No owner passkey is registered. Trusted enrollment is required.");
 }
-
 async function run(task) {
   try { await task(); } catch (error) { status(error.message || "Request unavailable"); }
 }

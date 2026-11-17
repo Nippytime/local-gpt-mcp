@@ -18,6 +18,7 @@ from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.credential_store import SQLiteCredentialStore
 from local_gpt_mcp.policy.owner_presence import OwnerPresence
 from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied
+from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger
 
 RESOURCE = "https://gateway.example.com/mcp"
 PORTAL = OwnerPortalConfig(
@@ -54,6 +55,7 @@ def base_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK",
         "LOCAL_MCP_APPROVAL_SIGNER_FILE",
         "LOCAL_MCP_PASSKEY_DB",
+        "LOCAL_MCP_STOP_DB",
         "LOCAL_MCP_OWNER_CLIENT_ID",
         "LOCAL_MCP_OWNER_AUTHORIZE_URL",
         "LOCAL_MCP_OWNER_TOKEN_URL",
@@ -111,6 +113,10 @@ async def test_explicit_one_host_configuration_loads_portal_and_denies_unenrolle
     with pytest.raises(RuntimeError, match="private issuer directory"):
         create_from_env()
     monkeypatch.setenv("LOCAL_MCP_PASSKEY_DB", str(private / "passkeys.sqlite"))
+    with pytest.raises(RuntimeError, match="durable STOP ledger"):
+        create_from_env()
+    SQLiteStopLedger.provision(private / "stop.sqlite")
+    monkeypatch.setenv("LOCAL_MCP_STOP_DB", str(private / "stop.sqlite"))
     with pytest.raises(RemoteApprovalDenied, match="unavailable"):
         create_from_env()
     SQLiteCredentialStore.provision(private / "passkeys.sqlite")
