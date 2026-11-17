@@ -13,6 +13,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.transport_security import TransportSecuritySettings
+from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier
@@ -39,8 +40,8 @@ def create_gateway_server(
     mcp = MCPServer(
         "Local GPT Web Gateway",
         auth=AuthSettings(
-            issuer_url=config.issuer_url,
-            resource_server_url=config.resource_url,
+            issuer_url=AnyHttpUrl(config.issuer_url),
+            resource_server_url=AnyHttpUrl(config.resource_url),
             required_scopes=[READ_SCOPE],
             validate_token_resource=True,
         ),
