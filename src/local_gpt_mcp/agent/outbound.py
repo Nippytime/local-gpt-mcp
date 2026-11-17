@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 import httpx2 as httpx
 
 from local_gpt_mcp.agent.identity import DeviceAuthenticationError, DeviceIdentity, sign_request
+from local_gpt_mcp.agent.remote_actions import AuthorizedActionRunner
 from local_gpt_mcp.gateway.registry import DeviceUnavailable, ReadRequest
 
 ReadResult = Mapping[str, str | int | bool]
@@ -38,6 +39,7 @@ class OutboundAgent:
         base_url: str,
         *,
         executor: LocalReadExecutor | None = None,
+        action_runner: AuthorizedActionRunner | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         parts = urlsplit(base_url)
@@ -54,6 +56,9 @@ class OutboundAgent:
         self.identity = identity
         self.base_url = base_url.rstrip("/")
         self.executor = executor if executor is not None else DenyAllExecutor()
+        self._action_runner = action_runner
+        if action_runner is not None and action_runner.device_id != identity.device_id:
+            raise ValueError("Action runner must belong to this local device")
         self._client = client
 
     async def _post(self, path: str, body: dict[str, object], *, signed: bool) -> dict[str, object]:
@@ -117,12 +122,37 @@ class OutboundAgent:
             raise DeviceUnavailable("Gateway did not accept the read result")
         return True
 
+    async def tick_action(self) -> bool:
+        """Fetch only signed, independently owner-approved jobs; deny by default."""
+        if self._action_runner is None:
+            return False
+        message = await self._post("/api/agent/actions/poll", {}, signed=True)
+        job_id = message.get("job_id")
+        if job_id is None:
+            return False
+        if not isinstance(job_id, str) or len(job_id) != 32:
+            raise DeviceUnavailable("Invalid remote action identifier")
+        try:
+            result = await asyncio.wait_for(self._action_runner.execute(message), timeout=6)
+        except (DeviceUnavailable, PermissionError, TimeoutError, ValueError, TypeError):
+            result = {"error": "Local policy denied the action or input state is uncertain"}
+        acknowledgment = await self._post(
+            "/api/agent/actions/result",
+            {"job_id": job_id, "result": result},
+            signed=True,
+        )
+        if acknowledgment.get("accepted") is not True:
+            raise DeviceUnavailable("Gateway did not accept the action acknowledgment")
+        return True
+
     async def run(self, stop: asyncio.Event) -> None:
         """Reconnect with bounded backoff. No background service is installed."""
         pause = 1.0
         while not stop.is_set():
             try:
                 await self.tick()
+                if self._action_runner is not None:
+                    await self.tick_action()
                 pause = 1.0
                 # A remote command cannot determine or disable this local stop.
                 try:
