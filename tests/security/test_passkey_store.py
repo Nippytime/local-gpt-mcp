@@ -17,6 +17,7 @@ from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied, ScopedAct
 
 CREDENTIAL_ID = "credential-alice-0001"
 
+
 def _provision(tmp_path: Path) -> Path:
     private = tmp_path / "operator"
     private.mkdir(mode=0o700)
@@ -141,6 +142,7 @@ def test_database_contains_no_signing_private_keys(tmp_path: Path) -> None:
         row = db.execute("SELECT owner, length(public_key), sign_count FROM passkeys").fetchone()
     assert columns == {"credential_id", "owner", "public_key", "sign_count"}
     assert row == ("alice", 65, 0)
+
 
 def test_explicit_provisioning_and_permanent_revocation_fail_closed(tmp_path: Path) -> None:
     if _windows_denies(tmp_path):
