@@ -246,7 +246,9 @@ async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
         )
         broker = SessionBroker(PolicyAuthority(Approval()))
         controller = BrowserController(broker)
-        async with IsolatedBrowserSession("https://example.com", controller, headless=True) as runtime:
+        async with IsolatedBrowserSession(
+            "https://example.com", controller, headless=True
+        ) as runtime:
             assert runtime.context is not None
             page = runtime.context.pages[0]
             await page.goto(
