@@ -224,6 +224,7 @@ def test_runner_does_not_report_success_after_midrun_checkout_change(
     monkeypatch.setattr(runner, "checked_revision", lambda root=runner.ROOT: next(revisions))
     monkeypatch.setattr(runner, "require_local_operator", lambda: None)
     monkeypatch.setattr(runner, "run_smokes", lambda report, **kwargs: 0)
+
     def capture_report(report: dict[str, Any]) -> Path:
         recorded.append(report.copy())
         return Path("record.json")
