@@ -102,7 +102,9 @@ async def test_first_owner_http_registration_verifies_real_webauthn_and_replay(
         assert saved.owner == "alice"
         assert saved.key.public_numbers() == private.public_key().public_numbers()
         assert (await client.post("/api/owner/passkey/finish", json=payload)).status_code == 403
-        assert (await client.post("/api/owner/passkey/begin", json={"operator_code": code})).status_code == 403
+        assert (
+            await client.post("/api/owner/passkey/begin", json={"operator_code": code})
+        ).status_code == 403
 
 
 @pytest.mark.anyio
@@ -140,9 +142,7 @@ async def test_enrollment_requires_separate_client_scope_origin_token_and_owner(
             assert result.headers["cache-control"] == "no-store"
         absent = await client.post("/api/owner/passkey/begin", headers=HEADERS, json={})
         assert absent.status_code == 403
-        begin = await client.post(
-            "/api/owner/passkey/begin", headers=HEADERS, json={"operator_code": code}
-        )
+        begin = await client.post("/api/owner/passkey/begin", headers=HEADERS, json={"operator_code": code})
         assert begin.status_code == 200
         entry = begin.json()
         key = ec.generate_private_key(ec.SECP256R1())
@@ -194,7 +194,7 @@ async def test_oversized_malformed_and_duplicate_fields_rejected(tmp_path: Path)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url=ORIGIN, headers=HEADERS
     ) as client:
-        for raw in ('{"operator_code":"a","operator_code":"b"}', '{"operator_code":}', "[]" ):
+        for raw in ('{"operator_code":"a","operator_code":"b"}', '{"operator_code":}', "[]"):
             response = await client.post(
                 "/api/owner/passkey/begin", content=raw, headers={"Content-Type": "application/json"}
             )
