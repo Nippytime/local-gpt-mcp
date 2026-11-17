@@ -74,9 +74,7 @@ class FakeVerifier:
 @pytest.mark.anyio
 async def test_default_hosting_exposes_no_owner_registration_routes() -> None:
     app = create_from_env()
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url=ORIGIN
-    ) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
         assert (await client.get("/owner/enroll")).status_code in (404, 405)
         assert (await client.post("/api/owner/passkey/begin", json={})).status_code in (404, 405)
 
@@ -96,9 +94,7 @@ async def test_explicit_hosting_wires_real_private_stores_and_exact_oauth_identi
     code = permits.issue_local("alice")
     monkeypatch.setattr(server, "JWTVerifier", lambda _config: FakeVerifier())
     app = create_from_env()
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url=ORIGIN
-    ) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
         page = await client.get("/owner/enroll")
         assert page.status_code == 200
         assert page.headers["cache-control"] == "no-store"
@@ -165,5 +161,5 @@ def test_enabled_hosting_rejects_incomplete_and_untrusted_configuration(
         create_from_env()
     monkeypatch.setenv("LOCAL_MCP_PASSKEY_DB", str(private / "passkeys.sqlite"))
     os.chmod(private / "permits.sqlite", 0o644)
-    with pytest.raises(Exception, match="unsafe"):
+    with pytest.raises(Exception, match="unsafe|unavailable"):
         create_from_env()

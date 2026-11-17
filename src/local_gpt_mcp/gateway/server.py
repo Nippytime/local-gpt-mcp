@@ -152,7 +152,9 @@ def create_from_env() -> Starlette:
     permit_path = Path(os.environ["LOCAL_MCP_OWNER_PERMIT_DB"])
     credential_path = Path(os.environ["LOCAL_MCP_PASSKEY_DB"])
     if permit_path == credential_path or permit_path.parent != credential_path.parent:
-        raise RuntimeError("Operator permit and passkey stores require separate files in one private directory")
+        raise RuntimeError(
+            "Operator permit and passkey stores require separate files in one private directory"
+        )
     permits = SQLiteBootstrapPermits(permit_path)
     credentials = SQLiteCredentialStore(credential_path)
     verifier = JWTVerifier(config)
