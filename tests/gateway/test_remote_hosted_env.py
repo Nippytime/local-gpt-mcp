@@ -14,8 +14,8 @@ from local_gpt_mcp.gateway.auth import GatewayConfig
 from local_gpt_mcp.gateway.issuer_keys import provision_issuer_key
 from local_gpt_mcp.gateway.owner_portal import OwnerPortalConfig
 from local_gpt_mcp.gateway.server import create_from_env, create_gateway
-from local_gpt_mcp.policy.credential_store import SQLiteCredentialStore
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
+from local_gpt_mcp.policy.credential_store import SQLiteCredentialStore
 from local_gpt_mcp.policy.owner_presence import OwnerPresence
 from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied
 

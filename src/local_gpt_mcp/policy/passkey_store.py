@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import Protocol
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
@@ -18,7 +18,6 @@ from local_gpt_mcp.policy.credential_store import (
 from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied
 
 PasskeyCredential = StoredCredential
-_Result = TypeVar("_Result")
 
 
 class PasskeyStore(Protocol):
@@ -80,7 +79,7 @@ class MemoryPasskeys:
             self._entries[credential_id] = PasskeyCredential(owner, current.key, sign_count)
 
 
-def _trusted(operation: Callable[[], _Result]) -> _Result:
+def _trusted[_Result](operation: Callable[[], _Result]) -> _Result:
     try:
         return operation()
     except CredentialStoreDenied as error:
