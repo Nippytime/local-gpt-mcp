@@ -25,7 +25,14 @@ from local_gpt_mcp.policy.stop_ledger import StopDenied
 OWNER_SCOPE = "devices:manage"
 
 
-async def _owner(request: Request, verify: TokenVerifier, resource: str, client_id: str | None) -> str:
+async def _owner(
+    request: Request,
+    verify: TokenVerifier,
+    resource: str,
+    client_id: str | None,
+    *,
+    scope: str = OWNER_SCOPE,
+) -> str:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token or len(token) > 8192:
@@ -35,7 +42,7 @@ async def _owner(request: Request, verify: TokenVerifier, resource: str, client_
         auth is None
         or client_id is None
         or auth.client_id != client_id
-        or OWNER_SCOPE not in auth.scopes
+        or scope not in auth.scopes
         or not auth.subject
         or auth.resource != resource
     ):
