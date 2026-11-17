@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncIterator, Mapping
 from pathlib import Path
 
@@ -247,6 +248,10 @@ async def test_owner_halt_is_oauth_scoped_and_persistently_denies_agent(
     private = tmp_path / "private"
     private.mkdir(mode=0o700)
     path = private / "stop.sqlite"
+    if os.name == "nt":
+        with pytest.raises(StopDenied, match="POSIX"):
+            SQLiteStopLedger.provision(path)
+        return
     relay = AgentRelay(stops=SQLiteStopLedger.provision(path))
     directory = DeviceDirectory(relay)
     app = create_gateway(CONFIG, directory=directory, relay=relay, verifier=StubVerifier())
