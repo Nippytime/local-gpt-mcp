@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import httpx2 as httpx
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.auth.provider import AccessToken
 
+from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig
 from local_gpt_mcp.gateway.registry import DeviceDirectory
 from local_gpt_mcp.gateway.server import create_gateway, create_gateway_server
+from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
+from local_gpt_mcp.policy.owner_presence import OwnerPresence
 
 CONFIG = GatewayConfig(
     resource_url="https://gateway.example.com/mcp",
@@ -125,3 +129,36 @@ async def test_real_authenticated_streamable_http_mcp_client_is_tenant_scoped() 
         }
         foreign = await client.call_tool("device_status", {"device_id": "pc-b"})
         assert foreign.is_error
+
+
+@pytest.mark.anyio
+async def test_optional_input_tool_denies_read_only_model_without_owner_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The separately scoped tool must not enqueue input for a read-only client."""
+    signer = Ed25519PrivateKey.generate()
+    presence = OwnerPresence(
+        origin="https://gateway.example.com",
+        receipt_signer=signer,
+        stopped=lambda: False,
+    )
+    approvals = OwnerApprovalQueue(presence)
+    actions = RemoteActionRelay(approvals, connected=lambda owner, device: True)
+    principal = AccessToken(
+        token="read-only-model",
+        client_id="model",
+        scopes=["devices:read"],
+        resource=CONFIG.resource_url,
+        subject="alice",
+    )
+    monkeypatch.setattr("local_gpt_mcp.gateway.server.get_access_token", lambda: principal)
+    server = create_gateway_server(CONFIG, verifier=StubVerifier(), actions=actions)
+    async with Client(server) as client:
+        tools = {tool.name for tool in (await client.list_tools()).tools}
+        assert "request_device_click" in tools
+        denied = await client.call_tool(
+            "request_device_click",
+            {"device_id": "pc-a", "session_id": "session-1", "target": "window:41", "x": 1, "y": 1},
+        )
+        assert denied.is_error
+    assert approvals.list_owned("alice") == []
