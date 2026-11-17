@@ -91,15 +91,13 @@ def install_agent_routes(
     ) -> Callable[[Request], Awaitable[JSONResponse]]:
         async def call(request: Request) -> JSONResponse:
             try:
-                # The MCP SDK's transport Host/Origin policy must also apply
-                # to these additional non-MCP endpoints.
+                # Enforce the same gateway Host/Origin policy for non-MCP endpoints.
                 if request.headers.get("host", "").casefold() != host or request.headers.get(
                     "origin"
                 ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
                 response = await handler(request)
             except (DeviceAuthenticationError, DeviceUnavailable, ValueError, TypeError):
-                # Do not disclose ownership, enrollment details or signature results.
                 response = JSONResponse({"error": "Unauthorized or unavailable"}, status_code=403)
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Content-Type-Options"] = "nosniff"
@@ -186,8 +184,6 @@ def install_agent_routes(
         actions.reply_trusted(owner, device_id, job_id, result)
         return JSONResponse({"accepted": True})
 
-    # Before generic MCP transport routes: never allow a catch-all mount
-    # to shadow authenticated enrollment or signed agent endpoints.
     app.router.routes[:0] = [
         Route("/api/owner/enrollments", owner_enrollment, methods=["POST"]),
         Route("/api/owner/revoke", owner_revoke, methods=["POST"]),
