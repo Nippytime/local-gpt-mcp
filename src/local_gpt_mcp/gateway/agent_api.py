@@ -64,10 +64,9 @@ def install_agent_routes(app: Starlette, relay: AgentRelay, verifier: TokenVerif
             try:
                 # The MCP SDK's transport Host/Origin policy must also apply
                 # to these additional non-MCP endpoints.
-                if (
-                    request.headers.get("host", "").casefold() != host
-                    or request.headers.get("origin") not in (None, origin)
-                ):
+                if request.headers.get("host", "").casefold() != host or request.headers.get(
+                    "origin"
+                ) not in (None, origin):
                     raise DeviceAuthenticationError("Untrusted gateway host or browser origin")
                 return await handler(request)
             except (DeviceAuthenticationError, DeviceUnavailable, ValueError, TypeError):
