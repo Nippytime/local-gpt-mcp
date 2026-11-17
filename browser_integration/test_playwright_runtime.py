@@ -297,3 +297,28 @@ async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
     finally:
         listener.close()
         await listener.wait_closed()
+
+
+
+@pytest.mark.anyio
+async def test_real_chromium_disables_webrtc_peers_in_top_level_and_iframe() -> None:
+    """Untrusted page JavaScript cannot open an ICE/data-channel network path."""
+    broker = SessionBroker(PolicyAuthority(Approval()))
+    controller = BrowserController(broker)
+    probe = """() => ["RTCPeerConnection", "webkitRTCPeerConnection"].every(name => {
+        const descriptor = Object.getOwnPropertyDescriptor(globalThis, name);
+        if (!descriptor || descriptor.value !== undefined ||
+                descriptor.writable || descriptor.configurable) {
+            return false;
+        }
+        try { globalThis[name] = function Bypass() {}; } catch {}
+        return typeof globalThis[name] === "undefined";
+    })"""
+    async with IsolatedBrowserSession("https://example.com", controller, headless=True) as runtime:
+        assert runtime.context is not None
+        page = runtime.context.pages[0]
+        assert await page.evaluate(probe) is True
+
+        await page.set_content('<iframe id="child" src="about:blank"></iframe>')
+        child = next(frame for frame in page.frames if frame != page.main_frame)
+        assert await child.evaluate(probe) is True
