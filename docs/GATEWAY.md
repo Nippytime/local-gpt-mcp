@@ -1,6 +1,6 @@
 # Web gateway — authenticated resource server (Issue #21)
 
-The web-first user experience is ChatGPT Web → a public HTTPS MCP endpoint → an outbound-only, user-owned Windows agent. **This PR supplies only the first gateway contract. It does not deploy a public URL, register Windows agents, complete OAuth login, or enable remote input.**
+The web-first user experience is ChatGPT Web → a public HTTPS MCP endpoint → an outbound-only, user-owned Windows agent. **This document originally covered only the Issue #21 gateway slice. The outbound agent, durable STOP/device identity, owner PKCE browser, WebAuthn approval and one narrowly scoped remote click path are now integrated in `dev`, but OFF by default.** No public URL, real OAuth login, connected PC or physical remote write has been proven. See [current web-first pilot steps](WEB_REMOTE.md).
 
 ## OAuth boundary
 
@@ -35,13 +35,14 @@ The ingress must preserve the trusted public \`Host\` and forward only HTTPS tra
 | \`list_my_devices\` | Verified \`devices:read\` | Lists only devices registered to the bearer token's owner identity |
 | \`device_status\` | Verified \`devices:read\` | Returns own device's online/offline state; unknown and another account's device are indistinguishable |
 | \`read_from_device\` | Verified \`devices:read\` and a **separately verified online agent** | Forwards only bounded, typed window/browser observations |
+| `request_device_click` (explicitly enabled only) | Verified `devices:read` and `devices:input`, separate owner passkey UP+UV, exact action/session/device/target, and on-PC policy | One scoped `window.click`; deny without owner proof or PC authorization |
 
 A device is offline by default. Enrollment and marking the device online are **internal trusted interfaces only**, not MCP tools or public HTTP endpoints. Without the independently authenticated outbound agent of [Issue #22](https://github.com/Nippytime/local-gpt-mcp/issues/22), even a validly authenticated device read fails closed. A cloud model does not receive the local pairing token, native grant token, passwords, cookies or arbitrary filesystem access.
 
-There are **no remote write tools** in this gateway. A future remotely requested click/type/navigation needs the independent owner-presence approval of [Issue #23](https://github.com/Nippytime/local-gpt-mcp/issues/23) and execution-time policy verification on the Windows device. Do not add a model-callable "enroll", "mark online" or "approve" tool.
+The initial Issue #21 gateway deliberately had **no remote write tools**. Current `dev` adds only conditional `request_device_click` when a trusted action relay and a separately verified owner passkey approval are explicitly configured; it is absent from default hosting. The local Windows agent verifies the exact signed receipt and live policy again before a single `window.click`. No remote typing, shell, credential extraction, lock/UAC bypass or self-approval. Do not add model-callable "enroll", "mark online" or "approve" tools. Actual physical approval and [Issue #23](https://github.com/Nippytime/local-gpt-mcp/issues/23) acceptance remain open.
 
 ## Verification and limits
 
 The deterministic suites in \`tests/gateway\` cover forged/wrong-issuer/wrong-audience/out-of-time tokens, required scopes, public HTTPS configuration, cross-account device enumeration, offline denial, fake-agent read routing and HTTP OAuth challenge/metadata. The regular nine PR checks, dependency audit, coverage threshold and production release guard remain mandatory.
 
-These tests are **not a live OAuth authorization-code flow**: identity-provider client registration, S256 login, cloud hosting, cross-user deployment, device registration, true outbound connectivity, second-device approvals and ChatGPT web use still require implementation and externally verifiable evidence. See [#21–#24](https://github.com/Nippytime/local-gpt-mcp/issues/20), [release Issue #10](https://github.com/Nippytime/local-gpt-mcp/issues/10) and [WEB_REMOTE.md](WEB_REMOTE.md). No release blocker is closed by this PR alone.
+These tests are **not a live OAuth authorization-code flow**: actual issuer/client registration, PKCE S256 login, cloud hosting, cross-user deployment, physical Windows device enrollment, independent owner-device approval and real ChatGPT web connectivity still require externally verifiable evidence. Integrated source and hosted fake-agent tests do not constitute a production service. See [#21–#24](https://github.com/Nippytime/local-gpt-mcp/issues/20), [release Issue #10](https://github.com/Nippytime/local-gpt-mcp/issues/10) and [WEB_REMOTE.md](WEB_REMOTE.md). No release blocker is closed by this PR alone.
