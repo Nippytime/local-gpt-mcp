@@ -72,10 +72,8 @@ class RemoteActionRelay:
             if (
                 owner in self._halted
                 or not self._connected(owner, device_id)
-                or sum(
-                    job.action.caller.device_id == device_id
-                    for job in self._jobs.values()
-                ) >= MAX_PENDING_PER_DEVICE
+                or sum(job.action.caller.device_id == device_id for job in self._jobs.values())
+                >= MAX_PENDING_PER_DEVICE
             ):
                 raise DeviceUnavailable("Device unavailable for remote input")
             job_id = secrets.token_hex(16)
@@ -91,9 +89,7 @@ class RemoteActionRelay:
                 raise DeviceUnavailable("Invalid remote input scope") from error
             loop = asyncio.get_running_loop()
             future: asyncio.Future[dict[str, str | int | bool]] = loop.create_future()
-            job = _ActionJob(
-                action, operation, dict(parameters), future, self._clock() + ACTION_SECONDS
-            )
+            job = _ActionJob(action, operation, dict(parameters), future, self._clock() + ACTION_SECONDS)
             self.approvals.offer_trusted(action, operation=operation, parameters=parameters)
             self._jobs[job_id] = job
         try:
