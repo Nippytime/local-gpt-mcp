@@ -25,6 +25,7 @@ from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, R
 
 ENROLL_SECONDS = 180
 READ_SECONDS = 8
+HEARTBEAT_SECONDS = 20
 MAX_QUEUED = 4
 
 
@@ -112,6 +113,16 @@ class AgentRelay:
                 self._directory.set_online_trusted(member.owner, device_id, True)
             return member.owner
 
+    def connected(self, owner: str, device_id: str) -> bool:
+        """Live authenticated poll within TTL, never just a remembered flag."""
+        with self._lock:
+            member = self._members.get(device_id)
+            return bool(
+                member is not None
+                and member.owner == owner
+                and 0 <= self._clock() - member.last_seen <= HEARTBEAT_SECONDS
+            )
+
     def revoke(self, owner: str, device_id: str) -> None:
         """Owner-only, authenticated API; revoke any queued work immediately."""
         with self._lock:
@@ -137,7 +148,7 @@ class AgentRelay:
             if (
                 member is None
                 or member.owner != owner
-                or self._clock() - member.last_seen > 20
+                or not self.connected(owner, device_id)
                 or sum(1 for job in self._jobs.values() if job.device_id == device_id) >= MAX_QUEUED
             ):
                 raise DeviceUnavailable("Device not actively connected")
