@@ -65,10 +65,8 @@ async function api(path, method = "GET", data) {
   return response.json();
 }
 function row(label, value, parent) {
-  const dt = document.createElement("dt");
-  const dd = document.createElement("dd");
-  dt.textContent = label;
-  dd.textContent = String(value);
+  const dt = document.createElement("dt"); const dd = document.createElement("dd");
+  dt.textContent = label; dd.textContent = String(value);
   parent.append(dt, dd);
 }
 function requestCard(request) {
@@ -95,12 +93,10 @@ function requestCard(request) {
     option.value = credentialId; option.textContent = credentialId;
     chooser.append(option);
   }
-  const approve = document.createElement("button");
-  approve.textContent = "Approve once with passkey";
+  const approve = document.createElement("button"); approve.textContent = "Approve once with passkey";
   approve.disabled = !credentialIds.length;
   approve.addEventListener("click", () => run(() => confirmAction(request.job_id, chooser.value)));
-  const deny = document.createElement("button");
-  deny.textContent = "Deny";
+  const deny = document.createElement("button"); deny.textContent = "Deny";
   deny.addEventListener("click", () => run(async () => {
     await api("/api/owner/approvals/deny", "POST", { job_id: request.job_id });
     await refresh();
@@ -137,8 +133,7 @@ async function refresh() {
   if (!accessToken) return;
   const [keys, requests] = await Promise.all([api("/api/owner/approvals/credentials"), api("/api/owner/approvals")]);
   credentialIds = keys.credential_ids;
-  const list = $("requests");
-  list.replaceChildren();
+  const list = $("requests"); list.replaceChildren();
   for (const request of requests.approvals) list.append(requestCard(request));
   if (!requests.approvals.length) {
     const empty = document.createElement("p");
