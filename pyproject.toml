@@ -9,6 +9,8 @@ description = "Consent-first local MCP desktop companion"
 requires-python = ">=3.12"
 dependencies = [
     "mcp==2.3.0",
+    "webauthn==3.0.1",
+    "cbor2==6.3.0",
     "playwright==1.65.2",
     "PyJWT[crypto]==2.15.1",
     "Pillow==13.0.0; sys_platform == 'win32'",
