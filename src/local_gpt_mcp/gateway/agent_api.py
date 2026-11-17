@@ -44,6 +44,7 @@ async def _owner(
         or scope not in auth.scopes
         or not auth.subject
         or auth.resource != resource
+        or (scope == OWNER_SCOPE and client_id is None)
         or (client_id is not None and auth.client_id != client_id)
     ):
         raise DeviceAuthenticationError("Owner access denied")
@@ -81,6 +82,7 @@ def install_agent_routes(
     resource: str,
     *,
     actions: RemoteActionRelay | None = None,
+    owner_client_id: str | None = None,
 ) -> None:
     """Add bounded, separately authenticated agent/control APIs to MCP's ASGI app."""
     public = urlsplit(resource)
@@ -110,7 +112,7 @@ def install_agent_routes(
 
     @safe
     async def owner_enrollment(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource)
+        owner = await _owner(request, verifier, resource, client_id=owner_client_id)
         data = await _json(request)
         label = data.get("label")
         if not isinstance(label, str):
@@ -120,7 +122,7 @@ def install_agent_routes(
 
     @safe
     async def owner_revoke(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource)
+        owner = await _owner(request, verifier, resource, client_id=owner_client_id)
         data = await _json(request)
         device_id = data.get("device_id")
         if not isinstance(device_id, str):
@@ -132,7 +134,7 @@ def install_agent_routes(
 
     @safe
     async def owner_halt(request: Request) -> JSONResponse:
-        owner = await _owner(request, verifier, resource)
+        owner = await _owner(request, verifier, resource, client_id=owner_client_id)
         relay.halt_owner(owner)
         if actions is not None:
             actions.halt_owner(owner)

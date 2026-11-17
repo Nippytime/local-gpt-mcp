@@ -109,6 +109,7 @@ def create_gateway(
     directory: DeviceDirectory | None = None,
     verifier: TokenVerifier | None = None,
     relay: AgentRelay | None = None,
+    owner_client_id: str | None = None,
     approvals: OwnerApprovalQueue | None = None,
     actions: RemoteActionRelay | None = None,
     portal: OwnerPortalConfig | None = None,
@@ -117,6 +118,10 @@ def create_gateway(
 ) -> Starlette:
     """Expose the authenticated MCP server plus optional outbound-only agent APIs."""
     token_verifier = verifier if verifier is not None else JWTVerifier(config)
+    if owner_client_id is not None and (
+        not isinstance(owner_client_id, str) or not 1 <= len(owner_client_id) <= 256
+    ):
+        raise ValueError("Explicit independent owner-browser OAuth client ID is required")
     if actions is not None and (relay is None or approvals is None or actions.approvals is not approvals):
         raise ValueError("Remote action endpoints require the matching trusted relay and approval queue")
     if portal is not None and approvals is None:
@@ -138,7 +143,14 @@ def create_gateway(
         ),
     )
     if relay is not None:
-        install_agent_routes(app, relay, token_verifier, config.resource_url, actions=actions)
+        install_agent_routes(
+            app,
+            relay,
+            token_verifier,
+            config.resource_url,
+            actions=actions,
+            owner_client_id=owner_client_id or (portal.client_id if portal is not None else None),
+        )
     if approvals is not None:
         install_approval_routes(
             app,
@@ -177,7 +189,11 @@ def create_from_env() -> Starlette:
     stops = SQLiteStopLedger(Path(stop_path)) if stop_path is not None else None
     mode = os.environ.get("LOCAL_MCP_REMOTE_APPROVALS", "0")
     if mode == "0":
-        return create_gateway(config, relay=AgentRelay(stops=stops))
+        return create_gateway(
+            config,
+            relay=AgentRelay(stops=stops),
+            owner_client_id=os.environ.get("LOCAL_MCP_OWNER_CLIENT_ID"),
+        )
     if mode != "1":
         raise RuntimeError("Remote approvals must be explicitly enabled with 1 or disabled with 0")
     if os.environ.get("LOCAL_MCP_REMOTE_SINGLE_PROCESS_ACK") != "1":
@@ -218,4 +234,6 @@ def create_from_env() -> Starlette:
         token_endpoint=os.environ["LOCAL_MCP_OWNER_TOKEN_URL"],
     )
     portal.validate(config)
-    return create_gateway(config, relay=relay, approvals=approvals, actions=actions, portal=portal)
+    return create_gateway(
+        config, relay=relay, owner_client_id=portal.client_id, approvals=approvals, actions=actions, portal=portal
+    )
