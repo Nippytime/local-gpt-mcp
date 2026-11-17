@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+
 
 import cbor2
 import pytest
@@ -111,20 +111,22 @@ def test_real_creation_verifies_and_stores_only_owner_p256_public_key() -> None:
 
 
 @pytest.mark.parametrize(
-    "overrides",
+    "origin,rp,flags,alg",
     [
-        {"origin": "https://attacker.example.com"},
-        {"rp": "attacker.example.com"},
-        {"flags": 0x41},  # UP but no UV
-        {"flags": 0x44},  # UV but no UP
-        {"alg": -257},  # unsupported RSA algorithm marker on EC2 key
+        ("https://attacker.example.com", RP_ID, 0x45, -7),
+        (ORIGIN, "attacker.example.com", 0x45, -7),
+        (ORIGIN, RP_ID, 0x41, -7),  # UP but no UV
+        (ORIGIN, RP_ID, 0x44, -7),  # UV but no UP
+        (ORIGIN, RP_ID, 0x45, -257),  # unsupported RSA alg marker on EC2 key
     ],
 )
-def test_malformed_or_wrong_origin_rp_uv_algorithm_is_rejected(overrides: dict[str, object]) -> None:
+def test_malformed_or_wrong_origin_rp_uv_algorithm_is_rejected(
+    origin: str, rp: str, flags: int, alg: int
+) -> None:
     registrar, store, _clock, _auth = service()
     start = registrar.begin("alice")
     key = ec.generate_private_key(ec.SECP256R1())
-    credential = fixture(start, key, **overrides)
+    credential = fixture(start, key, origin=origin, rp=rp, flags=flags, alg=alg)
     with pytest.raises(RegistrationDenied):
         registrar.finish("alice", start.challenge, credential)
     assert not store.credentials
