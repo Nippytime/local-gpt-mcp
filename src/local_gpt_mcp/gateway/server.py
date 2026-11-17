@@ -16,8 +16,8 @@ from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 
-from local_gpt_mcp.gateway.agent_api import install_agent_routes
 from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
+from local_gpt_mcp.gateway.agent_api import install_agent_routes
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.approval_api import install_approval_routes
 from local_gpt_mcp.gateway.auth import GatewayConfig, JWTVerifier

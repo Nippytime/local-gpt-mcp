@@ -19,8 +19,9 @@ from local_gpt_mcp.agent.outbound import OutboundAgent
 from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.agent_relay import AgentRelay
 from local_gpt_mcp.gateway.auth import GatewayConfig
-from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable
+from local_gpt_mcp.gateway.registry import DeviceDirectory
 from local_gpt_mcp.gateway.server import create_gateway
+from local_gpt_mcp.policy import Caller, Capability
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.owner_presence import OwnerPresence
 from local_gpt_mcp.policy.remote_receipts import (
@@ -29,7 +30,6 @@ from local_gpt_mcp.policy.remote_receipts import (
     SQLiteConsumptionStore,
     action_fingerprint,
 )
-from local_gpt_mcp.policy import Caller, Capability
 
 CONFIG = GatewayConfig(
     resource_url="https://gateway.example.com/mcp",

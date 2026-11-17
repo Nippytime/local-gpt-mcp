@@ -14,7 +14,6 @@ from local_gpt_mcp.gateway.action_relay import RemoteActionRelay
 from local_gpt_mcp.gateway.registry import DeviceUnavailable
 from local_gpt_mcp.policy.approval_queue import OwnerApprovalQueue
 from local_gpt_mcp.policy.owner_presence import OwnerPresence
-from local_gpt_mcp.policy.remote_receipts import RemoteApprovalDenied
 
 CREDENTIAL = "credential-alice-0001"
 
