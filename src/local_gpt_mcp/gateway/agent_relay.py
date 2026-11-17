@@ -22,6 +22,7 @@ from local_gpt_mcp.agent.identity import (
     decode_public_key,
 )
 from local_gpt_mcp.gateway.registry import DeviceDirectory, DeviceUnavailable, ReadRequest
+from local_gpt_mcp.policy.stop_ledger import SQLiteStopLedger, StopDenied
 
 ENROLL_SECONDS = 180
 READ_SECONDS = 8
@@ -57,8 +58,11 @@ class _Member:
 class AgentRelay:
     """Own the device read boundary; OAuth users can never call these methods via MCP."""
 
-    def __init__(self, *, clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self, *, clock: Callable[[], float] = time.time, stops: SQLiteStopLedger | None = None
+    ) -> None:
         self._clock = clock
+        self._stops = stops
         self._directory: DeviceDirectory | None = None
         self._enrollments: dict[str, _Enrollment] = {}
         self._members: dict[str, _Member] = {}
@@ -71,6 +75,10 @@ class AgentRelay:
             raise RuntimeError("Agent relay is already bound")
         self._directory = directory
 
+    def _allow(self, owner: str, device_id: str | None = None) -> None:
+        if self._stops is not None:
+            self._stops.require_allowed(owner, device_id)
+
     def issue_code(self, owner: str, label: str) -> tuple[str, str]:
         """Call ONLY after OAuth owner authentication; code is not an MCP tool."""
         if not isinstance(owner, str) or not 0 < len(owner) <= 128:
@@ -80,6 +88,7 @@ class AgentRelay:
         code = secrets.token_urlsafe(32)
         device_id = "pc-" + secrets.token_hex(12)
         with self._lock:
+            self._allow(owner)
             self._enrollments[hashlib.sha256(code.encode()).hexdigest()] = _Enrollment(
                 owner, device_id, label, self._clock() + ENROLL_SECONDS
             )
@@ -97,6 +106,7 @@ class AgentRelay:
                 raise DeviceAuthenticationError("Enrollment unavailable")
             if self._directory is None:
                 raise DeviceAuthenticationError("No trusted directory")
+            self._allow(entry.owner, device_id)
             self._directory.enroll_trusted(entry.owner, device_id, entry.label)
             self._members[device_id] = _Member(entry.owner, key)
 
@@ -105,6 +115,7 @@ class AgentRelay:
             member = self._members.get(device_id)
             if member is None or not isinstance(device_id, str):
                 raise DeviceAuthenticationError("Unknown device identity")
+            self._allow(member.owner, device_id)
             self._guard.verify(member.key, device_id, path, body, headers)
             member.last_seen = self._clock()
             if self._directory is not None:
@@ -115,11 +126,13 @@ class AgentRelay:
         """Live authenticated poll within TTL, never just a remembered flag."""
         with self._lock:
             member = self._members.get(device_id)
-            return bool(
-                member is not None
-                and member.owner == owner
-                and 0 <= self._clock() - member.last_seen <= HEARTBEAT_SECONDS
-            )
+            if member is None or member.owner != owner:
+                return False
+            try:
+                self._allow(owner, device_id)
+            except StopDenied:
+                return False
+            return 0 <= self._clock() - member.last_seen <= HEARTBEAT_SECONDS
 
     def revoke(self, owner: str, device_id: str) -> None:
         """Owner-only, authenticated API; revoke any queued work immediately."""
@@ -127,6 +140,8 @@ class AgentRelay:
             member = self._members.get(device_id)
             if member is None or member.owner != owner:
                 raise DeviceUnavailable("Device unavailable")
+            if self._stops is not None:
+                self._stops.revoke_device(owner, device_id)
             del self._members[device_id]
             if self._directory is not None:
                 self._directory.set_online_trusted(owner, device_id, False)
@@ -136,10 +151,23 @@ class AgentRelay:
                         job.future.set_exception(DeviceUnavailable("Device revoked"))
                     del self._jobs[job_id]
 
+    def halt_owner(self, owner: str) -> None:
+        """Owner-only, authenticated hard stop for this host's read relay."""
+        if self._stops is None:
+            raise StopDenied("Durable owner STOP is not configured")
+        with self._lock:
+            self._stops.halt_owner(owner)
+            for job_id, job in list(self._jobs.items()):
+                if job.owner == owner:
+                    if not job.future.done():
+                        job.future.set_exception(DeviceUnavailable("Owner stopped remote reads"))
+                    del self._jobs[job_id]
+
     async def read(self, owner: str, device_id: str, request: ReadRequest) -> Mapping[str, str | int | bool]:
         loop = asyncio.get_running_loop()
         job_id = secrets.token_hex(16)
         with self._lock:
+            self._allow(owner, device_id)
             member = self._members.get(device_id)
             if (
                 member is None
@@ -164,6 +192,7 @@ class AgentRelay:
     def poll(self, owner: str, device_id: str) -> dict[str, object]:
         """At most one read job, delivered once and never replayed."""
         with self._lock:
+            self._allow(owner, device_id)
             for job_id, job in self._jobs.items():
                 if job.owner == owner and job.device_id == device_id and not job.delivered:
                     if self._clock() >= job.expiry:
@@ -179,6 +208,7 @@ class AgentRelay:
 
     def reply(self, owner: str, device_id: str, job_id: str, values: Mapping[str, str | int | bool]) -> None:
         with self._lock:
+            self._allow(owner, device_id)
             job = self._jobs.get(job_id)
             if (
                 job is None
