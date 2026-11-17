@@ -11,8 +11,8 @@ import pytest
 
 from local_gpt_mcp.desktop import ControlInfo, DesktopDenied, Rect, WindowIdentity
 from local_gpt_mcp.desktop.windows import (
-    KEYEVENTF_UNICODE,
     KEYEVENTF_KEYUP,
+    KEYEVENTF_UNICODE,
     MOUSEEVENTF_LEFTDOWN,
     MOUSEEVENTF_LEFTUP,
     WindowsBackend,
