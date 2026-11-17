@@ -292,17 +292,22 @@ class WindowsBackend:
             raise DesktopDenied("Windows rejected the input event")
 
     def click(self, handle: int, x: int, y: int) -> None:
-        info = self._guard(handle)
-        if not info.rect.contains(x, y):
-            raise DesktopDenied("Click outside selected window")
-        point_target = self._gui.WindowFromPoint((x, y))
-        if self._gui.GetAncestor(point_target, GA_ROOT) != handle:
-            raise DesktopDenied("Another window obscures the click location")
+        def guard_point() -> None:
+            info = self._guard(handle)
+            if not info.rect.contains(x, y):
+                raise DesktopDenied("Click outside selected window")
+            if self._gui.GetAncestor(self._gui.WindowFromPoint((x, y)), GA_ROOT) != handle:
+                raise DesktopDenied("Another window obscures the click location")
+
+        guard_point()
         self._api.SetCursorPos((x, y))
-        self._guard(handle)
+        guard_point()
         self._send(0, flags=MOUSEEVENTF_LEFTDOWN)
-        self._guard(handle)
-        self._send(0, flags=MOUSEEVENTF_LEFTUP)
+        try:
+            self._guard(handle)
+        finally:
+            # Release a pressed button even if STOP or focus loss denies the click.
+            self._send(0, flags=MOUSEEVENTF_LEFTUP)
 
     def type_text(self, handle: int, text: str) -> None:
         for char in text:
@@ -311,7 +316,10 @@ class WindowsBackend:
             for i in range(0, len(units), 2):
                 key = units[i] | units[i + 1] << 8
                 self._send(1, flags=KEYEVENTF_UNICODE, value=key)
-                self._send(1, flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, value=key)
+                try:
+                    self._guard(handle)
+                finally:
+                    self._send(1, flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, value=key)
 
     def scroll(self, handle: int, steps: int) -> None:
         self._guard(handle)
@@ -321,5 +329,7 @@ class WindowsBackend:
         self._guard(handle)
         vk = KEY_CODES[key]
         self._send(1, flags=0, value=vk)
-        self._guard(handle)
-        self._send(1, flags=KEYEVENTF_KEYUP, value=vk)
+        try:
+            self._guard(handle)
+        finally:
+            self._send(1, flags=KEYEVENTF_KEYUP, value=vk)
