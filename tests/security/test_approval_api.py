@@ -37,13 +37,14 @@ class Verifier:
             "alice-owner": ("alice", ["approvals:manage"]),
             "bob-owner": ("bob", ["approvals:manage"]),
             "model": ("alice", ["devices:read"]),
+            "wrong-browser": ("alice", ["approvals:manage"]),
         }
         identity = identities.get(token)
         if identity is None:
             return None
         return AccessToken(
             token=token,
-            client_id="approval-browser",
+            client_id="wrong-browser" if token == "wrong-browser" else "approval-browser",
             scopes=identity[1],
             subject=identity[0],
             resource=RESOURCE,
@@ -91,7 +92,7 @@ def _fixture() -> tuple[
     )
     approvals.offer_trusted(action, operation="window.click", parameters={"x": 18, "y": 35})
     app = Starlette()
-    install_approval_routes(app, approvals, Verifier(), RESOURCE)
+    install_approval_routes(app, approvals, Verifier(), RESOURCE, owner_client_id="approval-browser")
     return app, approvals, action, key, signer
 
 
@@ -109,6 +110,11 @@ async def test_owner_passkey_confirm_is_one_job_and_device_only(tmp_path: Path) 
         assert (await client.get("/api/owner/approvals")).status_code == 403
         assert (
             await client.get("/api/owner/approvals", headers={"Authorization": "Bearer model"})
+        ).status_code == 403
+        assert (
+            await client.get(
+                "/api/owner/approvals", headers={"Authorization": "Bearer wrong-browser"}
+            )
         ).status_code == 403
         bob = await client.get("/api/owner/approvals", headers={"Authorization": "Bearer bob-owner"})
         assert bob.json() == {"approvals": []}
@@ -237,5 +243,20 @@ async def test_cross_origin_host_and_revoked_job_denied() -> None:
                 "/api/owner/approvals/begin",
                 headers=headers,
                 json={"job_id": JOB_ID, "credential_id": CREDENTIAL},
+            )
+        ).status_code == 403
+
+
+@pytest.mark.anyio
+async def test_approval_routes_fail_closed_without_independent_owner_client_pin() -> None:
+    app = Starlette()
+    _app, approvals, _action, _key, _signer = _fixture()
+    install_approval_routes(app, approvals, Verifier(), RESOURCE)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://gateway.example.com"
+    ) as client:
+        assert (
+            await client.get(
+                "/api/owner/approvals", headers={"Authorization": "Bearer alice-owner"}
             )
         ).status_code == 403
