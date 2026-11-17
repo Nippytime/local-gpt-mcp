@@ -99,9 +99,7 @@ def test_halt_not_reported_success_without_durable_storage() -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("decision", ["halt", "revoke", "missing"])
-async def test_remote_worker_stop_interrupts_outstanding_read(
-    tmp_path: Path, decision: str
-) -> None:
+async def test_remote_worker_stop_interrupts_outstanding_read(tmp_path: Path, decision: str) -> None:
     """An in-flight read fails before its normal timeout when a second worker denies it."""
     if os.name == "nt":
         with pytest.raises(StopDenied, match="POSIX"):
