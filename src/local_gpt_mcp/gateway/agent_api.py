@@ -7,9 +7,9 @@ the agent can only poll and answer bounded read requests on its own identity.
 from __future__ import annotations
 
 import json
-from urllib.parse import urlsplit
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit
 
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from starlette.applications import Starlette
