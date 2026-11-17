@@ -26,11 +26,9 @@ MAX_KEY_BYTES = 2048
 
 def _posix_value(name: str) -> int:
     raw = vars(os).get(name)
-    if raw is None:
-        raise RuntimeError("Required POSIX security primitive is unavailable")
-    value = int(raw() if callable(raw) else raw)
+    value = int(raw() if callable(raw) else raw) if raw is not None else 0
     if value <= 0:
-        raise RuntimeError("Unsafe POSIX security primitive")
+        raise RuntimeError("Required POSIX security primitive is unavailable")
     return value
 
 
@@ -110,6 +108,3 @@ def main() -> None:
         parser.exit(1, f"Issuer setup refused: {type(error).__name__}\n")
     print(public)
 
-
-if __name__ == "__main__":
-    main()
