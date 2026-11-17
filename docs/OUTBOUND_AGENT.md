@@ -4,7 +4,7 @@ This document originally described the **read-only Issue #22 device-connection s
 
 ## Owner enrollment
 
-The gateway's external OAuth identity provider first authenticates the owner with \`devices:manage\` scope. The owner makes an authenticated **non-MCP** request to \`POST /api/owner/enrollments\` with a device \`label\`; the gateway creates a random single-use, 180-second enrollment code and associated unique device ID. Codes are bound to that **verified OAuth account**, and never exposed through an MCP tool.
+The gateway's external OAuth identity provider first authenticates the owner with `devices:manage` scope **and the exact operator-pinned, separate owner-browser OAuth client identity**. A model OAuth client cannot use this endpoint even if it receives an elevated scope. The owner makes an authenticated **non-MCP** request to \`POST /api/owner/enrollments\` with a device \`label\`; the gateway creates a random single-use, 180-second enrollment code and associated unique device ID. Codes are bound to that **verified OAuth account**, and never exposed through an MCP tool.
 
 On the owner's Windows PC, in an **interactive standard-user session**:
 
@@ -20,7 +20,7 @@ Enter the device ID and secret from the trusted owner portal. The agent generate
 local-gpt-agent --gateway https://YOUR-OWNED-GATEWAY.example --run
 \`\`\`
 
-The agent initiates **HTTPS-only POST** calls to the trusted gateway. Device ID, short-lived timestamp, random request nonce, exact endpoint path and body hash are covered by Ed25519 signatures. The gateway verifies the matching enrolled public key, freshness and one-time nonce before dispatch. It returns only a single bounded read job, which is never automatically replayed, and accepts its signed result once. Response size, queue depth and timeouts are bounded.
+The agent initiates **HTTPS-only POST** calls to the trusted gateway. Device ID, short-lived timestamp, random request nonce, exact endpoint path and body hash are covered by Ed25519 signatures. The gateway verifies the matching enrolled public key, freshness and one-time nonce before dispatch. Default `--run` handles at most one bounded read request with a deny-first executor; a separately opted-in and physically authorized `--run-approved-input` session may instead handle one owner-passkey-approved signed `window.click`. Uncertain results are never silently retried. Response size, queue depth and timeouts are bounded.
 
 The agent polls periodically with capped reconnect backoff. Press Ctrl+C or stop the process locally to disconnect. No Windows service, scheduled task, automatic startup or firewall rule is installed here. The Windows PC must remain powered on, connected, unlocked and within an interactive user desktop to perform Windows input. The cloud cannot bypass Windows lock, UAC or secure desktop restrictions.
 
@@ -46,10 +46,10 @@ The gateway's \`create_gateway(..., relay=AgentRelay())\` enables the following 
 
 | Authenticator | HTTP endpoint | Result |
 | --- | --- | --- |
-| Owner bearer OAuth, \`devices:manage\` | \`POST /api/owner/enrollments\` | Single-use device claim; not callable by MCP model tools |
-| Owner bearer OAuth, \`devices:manage\` | \`POST /api/owner/revoke\` | Revoke enrolled public key; reject queued/future work |
+| Verified owner OAuth `devices:manage` and dedicated owner-client pin | `POST /api/owner/enrollments` | Single-use device claim; not callable by MCP model tools |
+| Verified owner OAuth `devices:manage` and dedicated owner-client pin | `POST /api/owner/revoke`, `POST /api/owner/halt` | Revoke enrolled key or persist owner STOP with the protected ledger |
 | One-time owner code (new device) | \`POST /api/agent/enroll\` | Bind public key to the authenticated owner's pending claim |
-| Ed25519 device signature | \`POST /api/agent/poll\` | Heartbeat and one pending *read-only* operation |
+| Ed25519 device signature | `POST /api/agent/poll` | Heartbeat and one pending read or explicit trusted remote click; default executor denies |
 | Ed25519 device signature | \`POST /api/agent/result\` | Return a bounded observation, never an arbitrary command |
 
 Every public API is fixed to an operator-owned HTTPS host; invalid bearer tokens, unknown devices, cross-account reads, expired/replayed signatures and code reuse fail closed. The model cannot invoke enrollment, owner revoke or remote approval tools. Owner OAuth tokens are not valid device signatures and device keys are not valid owner OAuth tokens.
