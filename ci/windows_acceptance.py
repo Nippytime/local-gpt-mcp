@@ -154,7 +154,7 @@ def main() -> int:
             print(f"Redacted local smoke record: {path}")
         except OSError as error:
             print(f"Could not save local smoke record: {error}", file=sys.stderr)
-            return 2
+            status = 2
 
     print("All three HIGH release blockers remain OPEN. This is NOT release approval.")
     return status
