@@ -105,11 +105,13 @@ def action_fingerprint(operation: str, parameters: Mapping[str, str | int | bool
     """Hash exact bounded action parameters; never persist typed text in consent logs."""
     if not isinstance(operation, str) or re.fullmatch(r"[a-z][a-z0-9_.-]{0,79}", operation) is None:
         raise RemoteApprovalDenied("Invalid requested operation")
-    if not isinstance(parameters, Mapping) or len(parameters) > 16 or any(
-        not isinstance(key, str)
-        or not 0 < len(key) <= 80
-        or not isinstance(value, str | int | bool)
-        for key, value in parameters.items()
+    if (
+        not isinstance(parameters, Mapping)
+        or len(parameters) > 16
+        or any(
+            not isinstance(key, str) or not 0 < len(key) <= 80 or not isinstance(value, str | int | bool)
+            for key, value in parameters.items()
+        )
     ):
         raise RemoteApprovalDenied("Invalid bounded action parameters")
     raw = json.dumps(
@@ -144,8 +146,11 @@ def issue_testable_receipt(
     ttl_seconds: int = 30,
 ) -> str:
     """Issuer-side primitive; a separate owner-presence service must gate its use."""
-    if type(issued_at) is not int or issued_at <= 0 or type(ttl_seconds) is not int or not (
-        0 < ttl_seconds <= MAX_TTL_SECONDS
+    if (
+        type(issued_at) is not int
+        or issued_at <= 0
+        or type(ttl_seconds) is not int
+        or not (0 < ttl_seconds <= MAX_TTL_SECONDS)
     ):
         raise RemoteApprovalDenied("Invalid approval lifetime")
     payload = {

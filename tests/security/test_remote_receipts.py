@@ -116,9 +116,11 @@ def test_approval_has_no_editable_authority_and_malformed_proofs_fail(tmp_path: 
     encoded, signature = proof.split(".")
     payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
     payload["target"] = "window:999"
-    forged = base64.urlsafe_b64encode(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
-    ).rstrip(b"=").decode("ascii")
+    forged = (
+        base64.urlsafe_b64encode(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii"))
+        .rstrip(b"=")
+        .decode("ascii")
+    )
     for candidate in ["", "bad", "!!!." + signature, forged + "." + signature, "x" * 5000]:
         with pytest.raises(RemoteApprovalDenied):
             verifier.verify(candidate, target)
