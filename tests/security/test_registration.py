@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 
-
 import cbor2
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
