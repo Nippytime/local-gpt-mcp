@@ -6,34 +6,25 @@ let config;
 let accessToken = "";
 let credentialIds = [];
 function base64url(bytes) {
-  let data = "";
-  for (const byte of bytes) data += String.fromCharCode(byte);
-  return btoa(data).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 function fromBase64url(encoded) {
-  if (typeof encoded !== "string" || !/^[a-zA-Z0-9_-]+$/.test(encoded)) {
-    throw new Error("A real registered WebAuthn credential is required");
-  }
+  if (typeof encoded !== "string" || !/^[a-zA-Z0-9_-]+$/.test(encoded)) throw new Error("A real registered WebAuthn credential is required");
   const value = atob(encoded.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(encoded.length / 4) * 4, "="));
   return Uint8Array.from(value, (char) => char.charCodeAt(0));
 }
-async function digest(data) {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", data));
-}
+async function digest(data) { return new Uint8Array(await crypto.subtle.digest("SHA-256", data)); }
 async function signIn() {
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
   const state = base64url(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = base64url(await digest(encoder.encode(verifier)));
   sessionStorage.setItem("owner-pkce", JSON.stringify({ state, verifier }));
   const url = new URL(config.authorization_endpoint);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", config.client_id);
-  url.searchParams.set("redirect_uri", config.redirect_uri);
-  url.searchParams.set("scope", "openid approvals:manage");
-  url.searchParams.set("resource", config.resource);
-  url.searchParams.set("state", state);
-  url.searchParams.set("code_challenge", challenge);
-  url.searchParams.set("code_challenge_method", "S256");
+  for (const [key, value] of [
+    ["response_type", "code"], ["client_id", config.client_id], ["redirect_uri", config.redirect_uri],
+    ["scope", "openid approvals:manage"], ["resource", config.resource], ["state", state],
+    ["code_challenge", challenge], ["code_challenge_method", "S256"]
+  ]) url.searchParams.set(key, value);
   location.assign(url.toString());
 }
 async function finishSignIn() {
@@ -46,12 +37,8 @@ async function finishSignIn() {
   const { state, verifier } = JSON.parse(saved);
   if (!state || params.get("state") !== state) throw new Error("OAuth state did not match");
   const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    code: params.get("code"),
-    client_id: config.client_id,
-    redirect_uri: config.redirect_uri,
-    code_verifier: verifier,
-    resource: config.resource,
+    grant_type: "authorization_code", code: params.get("code"), client_id: config.client_id,
+    redirect_uri: config.redirect_uri, code_verifier: verifier, resource: config.resource,
   });
   const response = await fetch(config.token_endpoint, {
     method: "POST",
@@ -61,9 +48,7 @@ async function finishSignIn() {
   });
   if (!response.ok) throw new Error("Owner sign-in exchange was refused");
   const token = await response.json();
-  if (typeof token.access_token !== "string" || token.token_type?.toLowerCase() !== "bearer") {
-    throw new Error("No valid owner OAuth bearer was received");
-  }
+  if (typeof token.access_token !== "string" || token.token_type?.toLowerCase() !== "bearer") throw new Error("No valid owner OAuth bearer was received");
   accessToken = token.access_token;
   return true;
 }
@@ -71,10 +56,7 @@ async function api(path, method = "GET", data) {
   if (!accessToken) throw new Error("Sign in as the owner to use this action");
   const response = await fetch(path, {
     method,
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      ...(data ? { "Content-Type": "application/json" } : {}),
-    },
+    headers: { "Authorization": `Bearer ${accessToken}`, ...(data ? { "Content-Type": "application/json" } : {}) },
     body: data ? JSON.stringify(data) : undefined,
     cache: "no-store",
     credentials: "omit",
@@ -130,9 +112,7 @@ function requestCard(request) {
 }
 async function confirmAction(jobId, credentialId) {
   if (!navigator.credentials?.get) throw new Error("Passkeys are unavailable in this browser");
-  const started = await api("/api/owner/approvals/begin", "POST", {
-    job_id: jobId, credential_id: credentialId,
-  });
+  const started = await api("/api/owner/approvals/begin", "POST", { job_id: jobId, credential_id: credentialId });
   const timeout = Math.max(1000, Math.min(60000, started.expires_at * 1000 - Date.now()));
   const credential = await navigator.credentials.get({
     publicKey: {
@@ -157,10 +137,7 @@ async function confirmAction(jobId, credentialId) {
 }
 async function refresh() {
   if (!accessToken) return;
-  const [keys, requests] = await Promise.all([
-    api("/api/owner/approvals/credentials"),
-    api("/api/owner/approvals"),
-  ]);
+  const [keys, requests] = await Promise.all([api("/api/owner/approvals/credentials"), api("/api/owner/approvals")]);
   credentialIds = keys.credential_ids;
   const list = $("requests");
   list.replaceChildren();
@@ -172,9 +149,7 @@ async function refresh() {
   }
   if (!credentialIds.length) status("No owner passkey is registered. Trusted enrollment is required.");
 }
-async function run(task) {
-  try { await task(); } catch (error) { status(error.message || "Request unavailable"); }
-}
+async function run(task) { try { await task(); } catch (error) { status(error.message || "Request unavailable"); } }
 async function main() {
   try {
     const response = await fetch("/owner/approve-config", { cache: "no-store" });
