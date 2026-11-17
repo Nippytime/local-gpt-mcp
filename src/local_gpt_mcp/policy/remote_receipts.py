@@ -1,8 +1,4 @@
-"""Device-local verification of independently signed, single-use remote consent.
-
-This verifier cannot approve itself: the pinned issuer key and trusted replay
-database are supplied by the local owner, not by MCP tool arguments.
-"""
+"""Verify pinned issuer, exact action scope and one-use remote consent on device."""
 
 from __future__ import annotations
 

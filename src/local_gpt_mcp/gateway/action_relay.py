@@ -1,8 +1,4 @@
-"""Approval-gated, outbound-only action transport.
-
-The gateway can enqueue a bounded action, but only a separate WebAuthn owner
-ceremony can release its one-use receipt. No native input is executed here.
-"""
+"""Outbound action transport; only separately verified owner presence releases receipts."""
 
 from __future__ import annotations
 
