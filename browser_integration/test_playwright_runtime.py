@@ -209,7 +209,6 @@ async def test_network_route_denies_private_and_cross_origin_requests(
         assert route.result == expected
 
 
-
 @pytest.mark.anyio
 async def test_real_chromium_private_navigation_never_reaches_loopback_listener(
     monkeypatch: pytest.MonkeyPatch,
