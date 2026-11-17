@@ -303,8 +303,11 @@ class WindowsBackend:
         self._api.SetCursorPos((x, y))
         guard_point()
         self._send(0, flags=MOUSEEVENTF_LEFTDOWN)
-        self._guard(handle)
-        self._send(0, flags=MOUSEEVENTF_LEFTUP)
+        try:
+            self._guard(handle)
+        finally:
+            # Release a pressed button even if STOP or focus loss denies the click.
+            self._send(0, flags=MOUSEEVENTF_LEFTUP)
 
     def type_text(self, handle: int, text: str) -> None:
         for char in text:

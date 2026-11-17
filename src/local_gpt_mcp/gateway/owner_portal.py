@@ -1,9 +1,4 @@
-"""Optional static owner browser UI with separate OAuth PKCE and WebAuthn.
-
-No bearer, approval receipts, issuer private keys, or native actions are served.
-The owner portal must be explicitly enabled with a separately registered IdP
-public client and same-issuer HTTPS authorize/token endpoints.
-"""
+"""Opt-in same-origin OAuth PKCE/WebAuthn owner approval browser."""
 
 from __future__ import annotations
 

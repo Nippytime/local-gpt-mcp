@@ -1,8 +1,4 @@
-"""Owner-visible, deny-first pending approval queue; never callable as an MCP tool.
-
-A trusted server component alone can enqueue validated, exact device actions.
-The owner APIs cannot enqueue work or retrieve a signed approval receipt.
-"""
+"""Deny-first pending owner approval queue; only trusted relay enqueues."""
 
 from __future__ import annotations
 

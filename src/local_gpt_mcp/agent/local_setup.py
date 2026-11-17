@@ -1,8 +1,4 @@
-"""Opt-in local Windows bootstrap for approved remote clicks.
-
-Requires a physically present operator on first launch. A remote MCP tool cannot
-call this code, select windows, install keys, or approve device pairing.
-"""
+"""Manual Windows bootstrap requires physical pairing and a pinned issuer key."""
 
 from __future__ import annotations
 

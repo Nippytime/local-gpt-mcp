@@ -231,3 +231,21 @@ def test_identity_is_bound_to_same_native_process(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(Process, "create_time", lambda self: 654321.0)
     with pytest.raises(DesktopDenied, match="identity"):
         backend._guard(41)
+
+def test_click_releases_button_after_local_stop(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = fake_native(monkeypatch)
+    backend.trust_local([41])
+    sent: list[int] = []
+    active = True
+
+    def send(kind: int, *, flags: int, value: int = 0) -> None:
+        nonlocal active
+        sent.append(flags)
+        if flags == MOUSEEVENTF_LEFTDOWN:
+            active = False
+
+    monkeypatch.setattr(backend, "_send", send)
+    monkeypatch.setattr(backend, "desktop_ready", lambda: active)
+    with pytest.raises(DesktopDenied, match="locked"):
+        backend.click(41, 100, 100)
+    assert sent == [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP]

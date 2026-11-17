@@ -1,8 +1,4 @@
-"""Separate owner-OAuth API: list, deny and passkey-confirm queued actions.
-
-No endpoint here can create a pending action, register a passkey, return an
-approval receipt, or execute native commands. Bearer identity alone never signs.
-"""
+"""Owner OAuth API for passkey-confirmed approval; cannot self-enqueue actions."""
 
 from __future__ import annotations
 
